@@ -1,341 +1,353 @@
-import { View, Text, StyleSheet, PanResponder } from 'react-native';
-import { useEffect, useState, useRef } from 'react';
-import axios from 'axios';
-import Svg, { Path, Line, Text as SvgText, Circle, Rect, G, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { uri } from '../services/URL';
-import { formatDate, formatPrice } from '../helpers/Common';
-import Loader from './Loader';
-import NewStyles from '../styles/NewStyles';
-import { themeColor0, themeColor1, themeColor12, themeColor4 } from '../theme/Color';
-import { TouchableOpacity } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 
-export default function Chart({ slug, title }) {
-    const [loading, setLoading] = useState(true);
-    const [data, setData] = useState([]);
-    const [tooltip, setTooltip] = useState(null);
-    const [filterType, setFilterType] = useState('daily');
-    const [allData, setAllData] = useState(null); // همه دیتا رو نگه می‌داریم
-    const pointsRef = useRef([]); 
-    const fetchData = async () => {
-        try {
-            const response = await axios.post(`${uri}/chart/new/`, { slug: slug }); 
-            setAllData(response?.data); // ذخیره کل دیتا
-            processData(response?.data, 'daily'); // پردازش اولیه با daily
-        } catch (error) {
-            console.log(error);
-        } finally {
-            setLoading(false);
-        }
-    };
+import {
+    Canvas,
+    Path,
+    Skia,
+    LinearGradient,
+    vec,
+    Circle,
+    Line,
+    Text as SkiaText,
+    useFont,
+    RoundedRect,
+} from '@shopify/react-native-skia';
 
-    const processData = (sourceData, type) => {
-        const selectedData = sourceData?.[type] || [];
+import {
+    Gesture,
+    GestureDetector,
+} from 'react-native-gesture-handler';
 
-        const processedData = selectedData.map((item) => {
+import {
+    useSharedValue,
+} from 'react-native-reanimated';
+
+const width = Dimensions.get('window').width - 40;
+const height = 280;
+
+const padding = {
+    top: 30,
+    bottom: 50,
+    left: 40,
+    right: 20,
+};
+
+const innerWidth = width - padding.left - padding.right;
+const innerHeight = height - padding.top - padding.bottom;
+
+function downsample(data, maxPoints = 250) {
+    if (data.length <= maxPoints) return data;
+
+    const bucket = Math.ceil(data.length / maxPoints);
+
+    return data.filter((_, i) => i % bucket === 0);
+}
+
+export default function ChartSkia({
+    data = [],
+    title = 'Chart',
+}) {
+
+    const font = useFont(
+        require('../assets/fonts/Vazir-Light-FD.ttf'),
+        11
+    );
+
+    const tooltipFont = useFont(
+        require('../assets/fonts/Vazir-Bold-FD.ttf'),
+        14
+    );
+
+    const tooltipX = useSharedValue(0);
+    const activeIndex = useSharedValue(-1);
+
+    const sampledData = useMemo(() => {
+        return downsample(data, 300);
+    }, [data]);
+
+    const {
+        points,
+        linePath,
+        areaPath,
+        minValue,
+        maxValue,
+    } = useMemo(() => {
+
+        if (!sampledData.length) {
             return {
-                value: Number(item.value),
-                date: formatDate(item.label).slice(5, 9),
-                fullDate: formatDate(item.label).slice(5, 9),
-                hour: new Date(item.label).getHours(),
-                label: item.label
-            }
-        });
-
-        setData([...processedData].reverse());
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, []); // فقط یک بار
-
-    useEffect(() => {
-        if (allData) {
-            processData(allData, filterType); // فقط پردازش می‌کنیم
+                points: [],
+                linePath: null,
+                areaPath: null,
+                minValue: 0,
+                maxValue: 0,
+            };
         }
-    }, [filterType]);
 
-    const handleTouch = (touchX) => {
-        if (!pointsRef.current || pointsRef.current.length === 0) return;
+        const values = sampledData.map(i => i.value);
 
-        const closest = pointsRef.current.reduce((prev, curr) => {
-            return Math.abs(curr.x - touchX) < Math.abs(prev.x - touchX) ? curr : prev;
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+
+        const range = max - min || 1;
+
+        const paddedMin = min - range * 0.1;
+        const paddedMax = max + range * 0.1;
+        const paddedRange = paddedMax - paddedMin;
+
+        const pts = sampledData.map((item, index) => {
+
+            const x =
+                padding.left +
+                (index / (sampledData.length - 1)) * innerWidth;
+
+            const y =
+                padding.top +
+                innerHeight -
+                ((item.value - paddedMin) / paddedRange) * innerHeight;
+
+            return {
+                x,
+                y,
+                ...item,
+            };
         });
 
-        setTooltip(closest);
-    };
+        const path = Skia.Path.Make();
 
-    const panResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
-            onMoveShouldSetPanResponder: () => true,
-            onPanResponderGrant: (evt) => handleTouch(evt.nativeEvent.locationX),
-            onPanResponderMove: (evt) => handleTouch(evt.nativeEvent.locationX),
-            onPanResponderRelease: () => setTooltip(null),
+        path.moveTo(pts[0].x, pts[0].y);
+
+        for (let i = 1; i < pts.length; i++) {
+
+            const prev = pts[i - 1];
+            const curr = pts[i];
+
+            const midX = (prev.x + curr.x) / 2;
+
+            path.cubicTo(
+                midX,
+                prev.y,
+                midX,
+                curr.y,
+                curr.x,
+                curr.y
+            );
+        }
+
+        const fillPath = path.copy();
+
+        fillPath.lineTo(
+            pts[pts.length - 1].x,
+            height - padding.bottom
+        );
+
+        fillPath.lineTo(
+            pts[0].x,
+            height - padding.bottom
+        );
+
+        fillPath.close();
+
+        return {
+            points: pts,
+            linePath: path,
+            areaPath: fillPath,
+            minValue: min,
+            maxValue: max,
+        };
+
+    }, [sampledData]);
+
+    const gesture = Gesture.Pan()
+        .onBegin((e) => {
+            findClosest(e.x);
         })
-    ).current;
+        .onUpdate((e) => {
+            findClosest(e.x);
+        })
+        .onEnd(() => {
+            activeIndex.value = -1;
+        });
 
-    if (loading) return <Loader />;
-    if (data.length === 0) return null;
+    const findClosest = (x) => {
 
-    const chartWidth = 340;
-    const chartHeight = 280;
-    const padding = { top: 30, bottom: 60, left: 50, right: 20 };
-    const innerWidth = chartWidth - padding.left - padding.right;
-    const innerHeight = chartHeight - padding.top - padding.bottom;
+        'worklet';
 
-    const minValue = Math.min(...data.map(d => d.value));
-    const maxValue = Math.max(...data.map(d => d.value));
-    const valueRange = maxValue - minValue;
+        if (!points.length) return;
 
-    const paddedMin = minValue - (valueRange * 0.1);
-    const paddedMax = maxValue + (valueRange * 0.1);
-    const paddedRange = paddedMax - paddedMin;
+        let closestIndex = 0;
+        let minDistance = Math.abs(points[0].x - x);
 
-    const points = data.map((item, index) => {
-        const x = padding.left + (index / (data.length - 1)) * innerWidth;
-        const y = padding.top + innerHeight - ((item.value - paddedMin) / paddedRange) * innerHeight;
-        return { x, y, ...item, index };
-    });
+        for (let i = 1; i < points.length; i++) {
 
-    pointsRef.current = points;
+            const distance = Math.abs(points[i].x - x);
 
-    let linePath = `M ${points[0].x} ${points[0].y}`;
-    const radius = 8;
-
-    for (let i = 1; i < points.length - 1; i++) {
-        const prev = points[i - 1];
-        const curr = points[i];
-        const next = points[i + 1];
-
-        const dx1 = curr.x - prev.x;
-        const dy1 = curr.y - prev.y;
-        const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-
-        const dx2 = next.x - curr.x;
-        const dy2 = next.y - curr.y;
-        const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-
-        const r = Math.min(radius, len1 / 2, len2 / 2);
-
-        const x1 = curr.x - (dx1 / len1) * r;
-        const y1 = curr.y - (dy1 / len1) * r;
-
-        const x2 = curr.x + (dx2 / len2) * r;
-        const y2 = curr.y + (dy2 / len2) * r;
-
-        linePath += ` L ${x1} ${y1} Q ${curr.x} ${curr.y} ${x2} ${y2}`;
-    }
-
-    linePath += ` L ${points[points.length - 1].x} ${points[points.length - 1].y}`;
-
-    const areaPath = `${linePath} L ${points[points.length - 1].x} ${chartHeight - padding.bottom} L ${points[0].x} ${chartHeight - padding.bottom} Z`;
-
-    const xLabels = [];
-    const step = Math.max(1, Math.ceil(data.length / 6));
-    for (let i = 0; i < points.length; i += step) {
-        xLabels.push({ x: points[i].x, label: points[i].date });
-    }
-
-    const yLabels = [];
-    const yStep = Math.ceil(valueRange / 5 / 10000) * 10000;
-    const yMin = Math.floor(minValue / 10000) * 10000;
-    const yMax = Math.ceil(maxValue / 10000) * 10000;
-
-    for (let val = yMin; val <= yMax; val += yStep) {
-        const y = chartHeight - padding.bottom - ((val - paddedMin) / paddedRange) * innerHeight;
-        if (y >= padding.top && y <= chartHeight - padding.bottom) {
-            yLabels.push({ y, label: (val) });
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestIndex = i;
+            }
         }
+
+        activeIndex.value = closestIndex;
+        tooltipX.value = points[closestIndex].x;
+    };
+
+    if (!linePath || !font || !tooltipFont) {
+        return null;
     }
+
+    const tooltipPoint =
+        activeIndex.value >= 0
+            ? points[activeIndex.value]
+            : null;
 
     return (
-        <View style={styles.chart}>
-            <Text style={styles.title}>{title}</Text>
-            <View style={[NewStyles.row, { gap: 10 }, NewStyles.center]}>
-                <TouchableOpacity onPress={() => setFilterType('daily')} style={[styles.filterItem, filterType === 'daily' && { backgroundColor: themeColor0.bgColor(1) }]}>
-                    <Text style={[NewStyles.text10, filterType === 'daily' && NewStyles.text4]}>
-                        روزانه
-                    </Text>
-                </TouchableOpacity>
+        <View style={styles.container}>
 
-                <TouchableOpacity onPress={() => setFilterType('weekly')} style={[styles.filterItem, filterType === 'weekly' && { backgroundColor: themeColor0.bgColor(1) }]}>
-                    <Text style={[NewStyles.text10, filterType === 'weekly' && NewStyles.text4]}>
-                        هفتگی
-                    </Text>
-                </TouchableOpacity>
+            <Text style={styles.title}>
+                {title}
+            </Text>
 
-                <TouchableOpacity onPress={() => setFilterType('monthly')} style={[styles.filterItem, filterType === 'monthly' && { backgroundColor: themeColor0.bgColor(1) }]}>
-                    <Text style={[NewStyles.text10, filterType === 'monthly' && NewStyles.text4]}>
-                        ماهانه
-                    </Text>
-                </TouchableOpacity>
+            <GestureDetector gesture={gesture}>
 
-                <TouchableOpacity onPress={() => setFilterType('yearly')} style={[styles.filterItem, filterType === 'yearly' && { backgroundColor: themeColor0.bgColor(1) }]}>
-                    <Text style={[NewStyles.text10, filterType === 'yearly' && NewStyles.text4]}>
-                        سالانه
-                    </Text>
-                </TouchableOpacity>
-            </View>
-            <View {...panResponder.panHandlers} style={{}}>
-                <Svg width={chartWidth} height={chartHeight}>
-                    <Defs>
-                        <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                            <Stop offset="0" stopColor={themeColor0.bgColor(1)} stopOpacity="0.3" />
-                            <Stop offset="1" stopColor={themeColor0.bgColor(1)} stopOpacity="0.05" />
-                        </LinearGradient>
-                    </Defs>
+                <Canvas
+                    style={{
+                        width,
+                        height,
+                    }}
+                >
 
-                    <Rect
-                        x="0"
-                        y="0"
-                        width={chartWidth}
-                        height={chartHeight}
-                        fill="transparent"
-                    />
+                    {/* Grid */}
 
-                    {yLabels.map((label, i) => (
-                        <Line
-                            key={`grid-${i}`}
-                            x1={padding.left}
-                            y1={label.y}
-                            x2={chartWidth - padding.right}
-                            y2={label.y}
-                            stroke="#e8e8e8"
-                            strokeWidth="1"
-                        />
-                    ))}
+                    {[0, 1, 2, 3, 4].map((i) => {
 
-                    <Path
-                        d={areaPath}
-                        fill="url(#grad)"
-                    />
+                        const y =
+                            padding.top +
+                            (innerHeight / 4) * i;
 
-                    <Path
-                        d={linePath}
-                        stroke={themeColor0.bgColor(1)}
-                        strokeWidth="2.5"
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                    />
-
-                    {yLabels.map((label, i) => (
-                        <SvgText
-                            key={`y-${i}`}
-                            x={0}
-                            y={label.y + 4}
-                            fontSize="10"
-                            fill="#666"
-                            fontFamily="VazirLight"
-                        >
-                            {formatPrice(label.label)}
-                        </SvgText>
-                    ))}
-
-                    {xLabels.map((label, i) => (
-                        <SvgText
-                            key={`x-${i}`}
-                            x={label.x}
-                            y={chartHeight - padding.bottom + 20}
-                            fontSize="10"
-                            fill="#666"
-                            textAnchor="middle"
-                            fontFamily="VazirLight"
-                        >
-                            {label.label}
-                        </SvgText>
-                    ))}
-
-                    {tooltip && (
-                        <G>
+                        return (
                             <Line
-                                x1={tooltip.x}
-                                y1={padding.top}
-                                x2={tooltip.x}
-                                y2={chartHeight - padding.bottom}
-                                stroke={themeColor0.bgColor(1)}
-                                strokeWidth="1"
-                                strokeDasharray="4,4"
+                                key={i}
+                                p1={vec(padding.left, y)}
+                                p2={vec(width - padding.right, y)}
+                                color="#e5e5e5"
+                                strokeWidth={1}
+                            />
+                        );
+                    })}
+
+                    {/* Area */}
+
+                    <Path path={areaPath}>
+
+                        <LinearGradient
+                            start={vec(0, 0)}
+                            end={vec(0, height)}
+                            colors={[
+                                'rgba(0,122,255,0.3)',
+                                'rgba(0,122,255,0.02)',
+                            ]}
+                        />
+
+                    </Path>
+
+                    {/* Line */}
+
+                    <Path
+                        path={linePath}
+                        color="#007AFF"
+                        style="stroke"
+                        strokeWidth={3}
+                    />
+
+                    {/* Labels */}
+
+                    {[0, 1, 2, 3, 4].map((i) => {
+
+                        const value =
+                            maxValue -
+                            ((maxValue - minValue) / 4) * i;
+
+                        const y =
+                            padding.top +
+                            (innerHeight / 4) * i;
+
+                        return (
+                            <SkiaText
+                                key={i}
+                                x={0}
+                                y={y + 4}
+                                text={Math.round(value).toString()}
+                                font={font}
+                                color="#666"
+                            />
+                        );
+                    })}
+
+                    {/* Tooltip */}
+
+                    {tooltipPoint && (
+                        <>
+                            <Line
+                                p1={vec(tooltipPoint.x, padding.top)}
+                                p2={vec(tooltipPoint.x, height - padding.bottom)}
+                                color="#007AFF"
+                                strokeWidth={1}
                             />
 
                             <Circle
-                                cx={tooltip.x}
-                                cy={tooltip.y}
-                                r="5"
-                                fill={themeColor0.bgColor(1)}
-                                stroke="#fff"
-                                strokeWidth="2"
+                                cx={tooltipPoint.x}
+                                cy={tooltipPoint.y}
+                                r={5}
+                                color="#007AFF"
                             />
 
-                            <Rect
-                                x={tooltip.x > chartWidth / 2 ? tooltip.x - 110 : tooltip.x + 10}
-                                y={Math.max(padding.top, Math.min(tooltip.y - 50, chartHeight - padding.bottom - 70))}
-                                width="100"
-                                height="70"
-                                fill="#fff"
-                                rx="8"
-                                stroke="#e0e0e0"
-                                strokeWidth="1"
-                                opacity="0.98"
+                            <RoundedRect
+                                x={
+                                    tooltipPoint.x > width / 2
+                                        ? tooltipPoint.x - 110
+                                        : tooltipPoint.x + 10
+                                }
+                                y={tooltipPoint.y - 60}
+                                width={100}
+                                height={50}
+                                r={10}
+                                color="white"
                             />
 
-                            <SvgText
-                                x={tooltip.x > chartWidth / 2 ? tooltip.x - 60 : tooltip.x + 60}
-                                y={Math.max(padding.top, Math.min(tooltip.y - 50, chartHeight - padding.bottom - 70)) + 22}
-                                fontSize="11"
-                                fill="#999"
-                                textAnchor="middle"
-                                fontFamily="VazirLight"
-                            >
-                                {`${tooltip.hour}:00`}
-                            </SvgText>
-
-                            <SvgText
-                                x={tooltip.x > chartWidth / 2 ? tooltip.x - 60 : tooltip.x + 60}
-                                y={Math.max(padding.top, Math.min(tooltip.y - 50, chartHeight - padding.bottom - 70)) + 38}
-                                fontSize="11"
-                                fill="#999"
-                                textAnchor="middle"
-                                fontFamily="VazirLight"
-                            >
-                                {tooltip.fullDate}
-                            </SvgText>
-
-                            <SvgText
-                                x={tooltip.x > chartWidth / 2 ? tooltip.x - 60 : tooltip.x + 60}
-                                y={Math.max(padding.top, Math.min(tooltip.y - 50, chartHeight - padding.bottom - 70)) + 58}
-                                fontSize="15"
-                                fill={themeColor0.bgColor(1)}
-                                textAnchor="middle"
-                                fontFamily="VazirBold"
-                            >
-                                {formatPrice(tooltip.value)}
-                            </SvgText>
-                        </G>
+                            <SkiaText
+                                x={
+                                    tooltipPoint.x > width / 2
+                                        ? tooltipPoint.x - 95
+                                        : tooltipPoint.x + 20
+                                }
+                                y={tooltipPoint.y - 30}
+                                text={tooltipPoint.value.toString()}
+                                font={tooltipFont}
+                                color="#007AFF"
+                            />
+                        </>
                     )}
-                </Svg>
-            </View>
+
+                </Canvas>
+
+            </GestureDetector>
+
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    chart: {
-        marginHorizontal: '5%',
-        backgroundColor: themeColor4.bgColor(1),
-        padding: '4%',
-        borderRadius: 12,
-        ...NewStyles.shadow
+    container: {
+        margin: 20,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 16,
     },
+
     title: {
-        ...NewStyles.title,
         fontSize: 16,
-        marginBottom: 15,
+        fontWeight: 'bold',
+        marginBottom: 10,
     },
-    filterItem: {
-        backgroundColor: themeColor12.bgColor(1),
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        ...NewStyles.border10
-    }
 });
