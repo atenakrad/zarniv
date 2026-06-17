@@ -65,6 +65,10 @@ import ChangePassword from './screens/account/ChangePassword';
 import RecieptLists from './screens/wallet/RecieptLists';
 import PayReserve from './screens/orders/PayReserve';
 import ShippingDeliveryPayment from './screens/wallet/ShippingDeliveryPayment';
+import ShippingDeliveryPaymentSilver from './screens/wallet/ShippingDeliveryPaymentSilver';
+import SilverConvert from './screens/wallet/SilverConvert';
+import GoldConvert from './screens/wallet/GoldConvert';
+import GoldSilverChart from './screens/chart/GoldSilverChart';
 
 
 function VersionCheckModal() {
@@ -186,10 +190,20 @@ export default function App() {
                   )
                 }
               }} />
+              <Stack.Screen name='ShippingDeliveryPaymentSilver' component={ShippingDeliveryPaymentSilver} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'پرداخت هزینه ارسال'} />
+                  )
+                }
+              }} />
               <Stack.Screen name='Order Detail' component={OrderDetail} />
               <Stack.Screen name='Verify' component={Verify} />
               <Stack.Screen name='Purchase' component={Purchase} />
               <Stack.Screen name='ChargeSilverWallet' component={ChargeSilverWallet} />
+              <Stack.Screen name='SilverConvert' component={SilverConvert} />
+              <Stack.Screen name='GoldConvert' component={GoldConvert} />
               <Stack.Screen name='SilverDeliveryRequest' component={SilverDeliveryRequest} />
               <Stack.Screen name='GoldSellRequest' component={GoldSellRequest} />
               <Stack.Screen name='SilverSellRequest' component={SilverSellRequest} />
@@ -204,6 +218,14 @@ export default function App() {
                 header: () => {
                   return (
                     <BackHeader title={'سفارشات'} />
+                  )
+                }
+              }} />
+              <Stack.Screen name='GoldSilverChart' component={GoldSilverChart} options={{
+                headerShown: false,
+                header: () => {
+                  return (
+                    <BackHeader title={'سود و زیان'} />
                   )
                 }
               }} />

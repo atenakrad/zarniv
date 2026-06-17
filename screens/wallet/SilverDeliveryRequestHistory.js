@@ -64,7 +64,7 @@ export default function SilverDeliveryRequestHistory({ navigation }) {
                     keyExtractor={(item) => item?.id?.toString()}
                     renderItem={({ item }) => {
                         return (
-                            <DeliveryRequestHistoryItem item={item} />
+                            <DeliveryRequestHistoryItem type='silver' item={item} />
                         )
                     }}
                 />

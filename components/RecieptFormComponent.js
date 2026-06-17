@@ -13,7 +13,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { handleError, showToastOrAlert } from '../helpers/Common';
 import { useTranslation } from 'react-i18next';
 
-const RecieptFormComponent = ({ title, request_type, order_id, transaction_id, physical_delivery_request_id }) => {
+const RecieptFormComponent = ({ title, request_type, order_id, transaction_id, physical_delivery_request_id, physical_delivery_silver_request_id }) => {
     const navigation = useNavigation()
     const [priceReciep, setPriceReciep] = useState('')
     const [description, setDescription] = useState('')
@@ -55,6 +55,9 @@ const RecieptFormComponent = ({ title, request_type, order_id, transaction_id, p
         }
         if (physical_delivery_request_id) {
             formData.append('physical_delivery_request', physical_delivery_request_id);
+        } 
+        if (physical_delivery_silver_request_id) {
+            formData.append('physical_delivery_silver_request', physical_delivery_silver_request_id); 
         } 
         formData.append('receipt', {
             uri: reciepCover.uri,

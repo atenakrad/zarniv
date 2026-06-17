@@ -202,7 +202,7 @@ export default function Purchase({ navigation }) {
             showToastOrAlert('خرید طلا با موفقیت انجام شد.');
             setPrice("")
             setWeight("")
-        } catch (error) {
+        } catch (error) { 
             handleError(error, t)
         } finally {
             dispatch(fetchTradingAllowed())

@@ -249,7 +249,7 @@ export default function DeliveryRequest({ navigation }) {
                     </TouchableOpacity>
                 </View>
                 <View style={[NewStyles.center, { flex: 1 }]}>
-                    <Text style={NewStyles.heading10}>تحویل فیزیکی</Text>
+                    <Text style={NewStyles.title10}>تحویل فیزیکی طلا</Text>
                 </View>
                 <View style={{ flex: 1 }}>
 

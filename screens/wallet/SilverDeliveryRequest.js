@@ -1,4 +1,4 @@
-import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { useEffect, useState, useRef } from 'react'
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -12,12 +12,15 @@ import { fetchUser } from '../../slices/userSlice';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchRate } from '../../slices/rateSlice';
 import axios from 'axios';
+import { fetchGoldPrice } from '../../slices/goldPriceSlice';  
 import { useTranslation } from 'react-i18next';
 import { fetchSilverInfoPrice } from '../../slices/silverInfoSlice';
 import VoteTimerDisplay from '../../components/VoteTimerDisplay';
 import { fetchTradingAllowed } from '../../slices/tradingAllowed';
+import Loader from '../../components/Loader';
+import SelectedComponent from '../../components/SelectedComponent';
 
-export default function SilverDeliveryRequest({ navigation }) {
+export default function DeliveryRequest({ navigation }) {
 
     const dispatch = useDispatch();
     const { t } = useTranslation();
@@ -25,9 +28,10 @@ export default function SilverDeliveryRequest({ navigation }) {
     const silverInfo = useSelector(state => state.silverInfo?.data);
     const silverInfoLoading = useSelector(state => state.silverInfo?.loading);
     const silverPrice = silverInfo?.silver_price_per_gram;
-    const trading = useSelector((state) => state?.trading)
-    const tradingData = trading?.data
     const editingField = useRef(null);
+    const trading = useSelector((state) => state?.trading)
+    const [stores, setStores] = useState([])
+    const tradingData = trading?.data
     useEffect(() => {
         dispatch(fetchSilverInfoPrice({ params: null }))
         dispatch(fetchTradingAllowed())
@@ -35,10 +39,16 @@ export default function SilverDeliveryRequest({ navigation }) {
 
     const user = useSelector((state) => state.user?.data);
     const [loading, setLoading] = useState(false);
+    const [loader, setLoader] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [shippingAddress, setShippingAddress] = useState('');
+    const [postCode, setPostCode] = useState('');
 
     const [weight, setWeight] = useState("");
     const [price, setPrice] = useState("");
+    const [name, setName] = useState("");
+    const [way, setWay] = useState('pickup');
+    const [pickupStore, setpickupStore] = useState('');
 
     const weightTimeoutRef = useRef(null);
     const priceTimeoutRef = useRef(null);
@@ -83,7 +93,6 @@ export default function SilverDeliveryRequest({ navigation }) {
             way: 'delivery'
 
         }
-        
         try {
             const response = await dispatch(fetchSilverInfoPrice({ params: payload }))
             const price =
@@ -187,12 +196,17 @@ export default function SilverDeliveryRequest({ navigation }) {
         }
         setLoading(true);
         try {
-            const response = await axios.post(`${uri}/silver/delivery/request/`, { weight }, { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } })
+            const response = await axios.post(`${uri}/silver/delivery/request/`, { weight, receiver_name: name, pickup_store_id: pickupStore, delivery_method: way, shipping_address: shippingAddress, shipping_postal_code: postCode }, { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } })
 
             dispatch(fetchUser(accessToken));
             showToastOrAlert(response?.data?.message);
             setWeight("");
             setPrice("");
+            setName("");
+            setShippingAddress("")
+            setPostCode("")
+            setWay("pickup")
+            setpickupStore("")
 
         } catch (error) {
             handleError(error, t)
@@ -202,73 +216,56 @@ export default function SilverDeliveryRequest({ navigation }) {
         }
     }
 
+    const fetchPickUpStore = () => {
+        axios.get(`${uri}/pick-up-store/`)
+            .then((res) => {
+                setStores(res?.data)
+            })
+            .catch((err) => {
+                handleError(err, t)
+            })
+            .finally(() => {
+                setLoader(false)
+            })
+    }
+    useEffect(() => {
+        fetchPickUpStore()
+    }, [])
+
+    if (loader) {
+        return (
+            <Loader />
+        )
+    }
+
     return (
         <SafeAreaView edges={{ top: 'additive', bottom: 'additive' }} style={NewStyles.container}>
+            <View style={[NewStyles.row, { paddingTop: 15, width: '100%' }]}>
+                <View style={[{ flex: 1 }, NewStyles.center]}>
+                    <TouchableOpacity style={{ padding: 10 }} onPress={() => {
+                        navigation.navigate('SilverDeliveryRequestHistory')
+                    }}>
+                        <Ionicons name={'list'} color={themeColor0.bgColor(1)} size={24} />
+                    </TouchableOpacity>
+                </View>
+                <View style={[NewStyles.center, { flex: 1 }]}>
+                    <Text style={NewStyles.title10}>تحویل فیزیکی نقره</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+
+                </View>
+            </View>
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={'padding'}>
                 {
                     tradingData?.allowed ?
-
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainerStyle} refreshControl={<RefreshControl colors={[themeColor1.bgColor(1)]} refreshing={refreshing} onRefresh={() => { dispatch(fetchRate(accessToken)); dispatch(fetchUser(accessToken)); }} />}>
-                            <View style={NewStyles.center}>
-                                <Text style={NewStyles.heading10}>درخواست تحویل فیزیکی</Text>
-                            </View>
                             <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
-
-                            {(!user?.is_national_birth_verified || !user?.is_phone_national_verified) && <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
-                                <View style={[NewStyles.row, { gap: 10 }]}>
-                                    <Ionicons name="alert-circle-outline" size={24} color={themeColor10.bgColor(1)} />
-                                    <Text style={[NewStyles.text10, { flex: 1 }]}>حساب کاربری شما در حال حاضر احراز هویت نشده است، برای شروع خرید و فروش ابتدا بایستی حساب کاربری خود را احراز هویت کنید.</Text>
-                                </View>
-                                <Button title={'احراز هویت'}
-                                    onPress={() => {
-                                        navigation.navigate('Verify')
-                                    }}
-                                />
-                            </View>}
-                            {(user?.is_national_birth_verified && user?.is_phone_national_verified && !user?.is_bank_info_verified) && <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
-                                <View style={[NewStyles.row, { gap: 10 }]}>
-                                    <Ionicons name="alert-circle-outline" size={24} color={themeColor10.bgColor(1)} />
-                                    <Text style={[NewStyles.text10, { flex: 1 }]}>برای ثبت درخواست فروش باید ابتدا حساب بانکی خود را احراز کنید.</Text>
-                                </View>
-                                <Button title={'تکمیل انقرهعات حساب'}
-                                    onPress={() => {
-                                        navigation.navigate('EditCard')
-                                    }}
-                                />
-                            </View>}
-
-                            <View style={NewStyles.rowWrapper}>
-                                <Text style={NewStyles.text10}>نرخ هر میلی گرم نقره</Text>
-                                <Text style={NewStyles.text10}>{formatPrice((Number(silverPrice) / 1000).toFixed())} تومان</Text>
-                            </View>
-
-                            <TextInput
-                                style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
-                                placeholderTextColor={themeColor10.bgColor(0.5)}
-                                keyboardType={'number-pad'}
-                                placeholder='مقدار بر حسب میلی گرم'
-                                value={weight}
-                                maxLength={5}
-                                onChangeText={handleWeightChange}
-                            />
-
-                            <TextInput
-                                style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
-                                placeholderTextColor={themeColor10.bgColor(0.5)}
-                                keyboardType={'number-pad'}
-                                placeholder='مقدار بر حسب تومان'
-                                value={price}
-                                onChangeText={handlePriceChange}
-                                onBlur={handlePriceBlur}
-                            />
-
-                            <Button
-                                title={'ثبت'}
-                                loading={loading}
-                                onPress={request}
-                            />
-
                             <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
+                                <View style={NewStyles.rowWrapper}>
+                                    <Text style={NewStyles.text10}>نرخ هر میلی گرم نقره</Text>
+                                    <Text style={NewStyles.text10}>{formatPrice((Number(silverPrice) / 1000)?.toFixed())} تومان</Text>
+                                </View>
+                                <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                                 <View style={NewStyles.rowWrapper}>
                                     <Text style={NewStyles.text10}>دارایی نقره</Text>
                                     <Text style={NewStyles.text10}>{formatPrice(user?.wallet?.silver_balance * 1000) || '0'} میلی گرم</Text>
@@ -279,6 +276,141 @@ export default function SilverDeliveryRequest({ navigation }) {
                                     <Text style={NewStyles.text10}>5,000 میلی گرم</Text>
                                 </View>
                             </View>
+                            {(!user?.is_national_birth_verified || !user?.is_phone_national_verified) &&
+                                <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
+                                    <View style={[NewStyles.row, { gap: 10 }]}>
+                                        <Ionicons name="alert-circle-outline" size={24} color={themeColor10.bgColor(1)} />
+                                        <Text style={[NewStyles.text10, { flex: 1 }]}>حساب کاربری شما در حال حاضر احراز هویت نشده است، برای شروع خرید و فروش ابتدا بایستی حساب کاربری خود را احراز هویت کنید.</Text>
+                                    </View>
+                                    <Button title={'احراز هویت'}
+                                        onPress={() => {
+                                            navigation.navigate('Verify')
+                                        }}
+                                    />
+                                </View>}
+                            {(user?.is_national_birth_verified && user?.is_phone_national_verified && !user?.is_bank_info_verified) &&
+                                <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
+                                    <View style={[NewStyles.row, { gap: 10 }]}>
+                                        <Ionicons name="alert-circle-outline" size={24} color={themeColor10.bgColor(1)} />
+                                        <Text style={[NewStyles.text10, { flex: 1 }]}>برای ثبت درخواست فروش باید ابتدا حساب بانکی خود را احراز کنید.</Text>
+                                    </View>
+                                    <Button title={'تکمیل انقرهعات حساب'}
+                                        onPress={() => {
+                                            navigation.navigate('EditCard')
+                                        }}
+                                    />
+                                </View>}
+                            <Text style={[NewStyles.text10]}>مقدار بر حسب میلی گرم</Text>
+                            <TextInput
+                                style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
+                                placeholderTextColor={themeColor10.bgColor(0.5)}
+                                keyboardType={'number-pad'}
+                                placeholder='مقدار بر حسب میلی گرم'
+                                value={weight}
+                                maxLength={5}
+                                onChangeText={handleWeightChange}
+                            />
+                            <Text style={[NewStyles.text10]}>مقدار بر حسب تومان</Text>
+                            <TextInput
+                                style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
+                                placeholderTextColor={themeColor10.bgColor(0.5)}
+                                keyboardType={'number-pad'}
+                                placeholder='مقدار بر حسب تومان'
+                                value={price}
+                                onChangeText={handlePriceChange}
+                                onBlur={handlePriceBlur}
+                            />
+                            <Text style={[NewStyles.text10]}>نام تحویل گیرنده</Text>
+                            <TextInput
+                                style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
+                                placeholderTextColor={themeColor10.bgColor(0.5)}
+                                placeholder='نام تحویل گیرنده'
+                                value={name}
+                                onChangeText={(p) => {
+                                    setName(p)
+                                }}
+                            />
+                            <View style={[NewStyles.row, { gap: 10, marginTop: 15 }]}>
+                                <TouchableOpacity style={[NewStyles.row, { gap: 5 }]} onPress={() => {
+                                    setWay('pickup')
+                                }}>
+                                    <SelectedComponent selected={way == 'pickup'} />
+                                    <Text style={NewStyles.text10}>تحویل از مغازه</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[NewStyles.row, { gap: 5 }]} onPress={() => {
+                                    setWay('shipping')
+                                }}>
+                                    <SelectedComponent selected={way == 'shipping'} />
+                                    <Text style={NewStyles.text10}>ارسال به آدرس</Text>
+                                </TouchableOpacity>
+
+                            </View>
+                            {
+                                way == 'pickup' &&
+                                <View style={{ gap: 10 }}>
+                                    {
+                                        stores?.map(item => {
+                                            return (
+                                                <TouchableOpacity key={item?.id} style={[NewStyles.border10, NewStyles.shadow, NewStyles.row, { backgroundColor: themeColor4.bgColor(1), padding: 10, alignItems: 'flex-start',   }]} onPress={() => {
+                                                    setpickupStore(item?.id)
+                                                }}>
+                                                    <SelectedComponent selected={pickupStore == item?.id} />
+
+                                                    <View style={{ flex: 1, paddingHorizontal: 15 }}>
+                                                        <Text style={NewStyles.title10}>{item?.shop_name}</Text>
+                                                        <View style={[NewStyles.row, { gap: 5, marginVertical: 5 }]}>
+                                                            <Ionicons name={'location'} size={18} color={themeColor0.bgColor(1)} />
+                                                            <Text style={NewStyles.text10}>{item?.address}</Text>
+                                                        </View>
+                                                        <TouchableOpacity style={[NewStyles.row, { gap: 5, marginVertical: 5 }]}>
+                                                            <Ionicons name={'call'} size={18} color={themeColor0.bgColor(1)} />
+                                                            <Text style={NewStyles.text10}>{item?.phone_number}</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+
+                                                </TouchableOpacity>
+                                            )
+                                        })
+                                    }
+                                </View>
+                            }
+                            {
+                                way == 'shipping' &&
+                                <View style={{ gap: 10 }}>
+                                    <Text style={[NewStyles.text10]}>آدرس کامل ارسال</Text>
+                                    <TextInput
+                                        style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10, { height: 70 }]}
+                                        placeholderTextColor={themeColor10.bgColor(0.5)}
+                                        placeholder='آدرس کامل ارسال'
+                                        verticalAlign='top'
+                                        textAlignVertical='top'
+                                        value={shippingAddress}
+                                        onChangeText={(p) => {
+                                            setShippingAddress(p)
+                                        }}
+                                    />
+                                    <Text style={[NewStyles.text10]}>کدپستی</Text>
+                                    <TextInput
+                                        style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
+                                        placeholderTextColor={themeColor10.bgColor(0.5)}
+                                        placeholder='کدپستی'
+                                        maxLength={10}
+                                        keyboardType='number-pad'
+                                        value={postCode}
+                                        onChangeText={(p) => {
+                                            setPostCode(p)
+                                        }}
+
+                                    />
+                                </View>
+                            }
+                            <Button
+                                title={'ثبت'}
+                                loading={loading}
+                                onPress={request}
+                            />
+
+
 
                         </ScrollView>
                         :
@@ -296,11 +428,8 @@ export default function SilverDeliveryRequest({ navigation }) {
                             />
                         </View>
                 }
-                <View style={{ marginHorizontal: '5%' }}>
-                    <Button title={'تاریخچه‌ی درخواست‌ها'} onPress={() => { navigation.navigate('SilverDeliveryRequestHistory') }} />
-                </View>
-            </KeyboardAvoidingView>
 
+            </KeyboardAvoidingView>
         </SafeAreaView>
     )
 }
@@ -308,7 +437,7 @@ export default function SilverDeliveryRequest({ navigation }) {
 const styles = StyleSheet.create({
     contentContainerStyle: {
         paddingHorizontal: '5%',
-        paddingVertical: '5%',
+        paddingBottom: '5%',
         gap: 10,
     },
 });

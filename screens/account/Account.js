@@ -20,7 +20,7 @@ import { removeToken } from '../../slices/tokenSlice'
 import axios from 'axios'
 
 const Account = ({ navigation }) => {
-  const user = useSelector(state => state.user?.data); 
+  const user = useSelector(state => state.user?.data);
   const accessToken = useSelector(state => state.token?.accessToken);
   const [logoutModal, setLogoutModal] = useState(false);
   const [deleteAccountModal, setDeleteAccountModal] = useState(false);
@@ -56,7 +56,7 @@ const Account = ({ navigation }) => {
   };
   const onShare = async () => {
     try {
-      await Share.share({ message: `دیگر نیازی به گشتن در بازارها و نگرانی از اصالت و قیمت طلا نیست! زرنیو، جامع‌ترین پلتفرم خرید و فروش طلای آنلاین، همراه همیشگی شما در دنیای درخشان طلا و سرمایه‌گذاری هوشمندانه است. \n کد معرف من: ${user?.referall_code} \nhttps://zarniv.com` });
+      await Share.share({ message: `زرنیو، جامع‌ترین پلتفرم خرید و فروش طلای آنلاین، همراه همیشگی شما در دنیای درخشان طلا و سرمایه‌گذاری هوشمندانه است. \n کد معرف من: ${user?.referall_code} \nhttps://zarniv.com` });
     } catch {
       const message = t('An unexpected error occurred!');
       showToastOrAlert(message);
@@ -66,12 +66,18 @@ const Account = ({ navigation }) => {
     {
       data: [
         { id: 1, title: 'سفارشات', icon: 'receipt-outline', navigation: 'Orders' },
+        { id: 6, title: 'سود و زیان طلا', icon: 'trending-up', navigation: 'GoldSilverChart', params: { metal: 'gold' } },
+        { id: 7, title: 'سود و زیان نقره', icon: 'trending-up', navigation: 'GoldSilverChart', params: { metal: 'silver' } },
         { id: 4, title: 'تراکنش‌ها', icon: 'swap-horizontal-outline', navigation: 'Transactions' },
         { id: 2, title: 'فیش‌های واریزی', icon: 'list-outline', navigation: 'RecieptLists' },
+      ],
+    },
+    {
+      data: [
         { id: 5, title: 'چت پشتیبانی', icon: 'chatbubble-outline', navigation: 'Chat' },
         { id: 3, title: 'تغییر رمز عبور', icon: 'lock-closed-outline', navigation: 'ChangePassword' },
       ],
-    }, 
+    },
     {
       data: [
         { id: 2, title: t('FAQ'), icon: 'help-circle-outline', navigation: 'Faq' },
@@ -131,7 +137,7 @@ const Account = ({ navigation }) => {
                         else if (item.navigation === 'DeleteAccount') setDeleteAccountModal(true);
                         else if (item.navigation === 'InviteFriends') onShare();
                         else if (item.navigation === 'CheckUpdate') recheckVersion();
-                        else navigation.navigate(item.navigation);
+                        else navigation.navigate(item.navigation, {params: item?.params});
                       }}
                     >
                       <View style={[NewStyles.row, { flex: 1 }]}>

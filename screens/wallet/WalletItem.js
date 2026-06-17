@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ImageBackground } from 'expo-image';
 import React, { useLayoutEffect, useState } from 'react';
 import Animated, { useAnimatedStyle, interpolate } from 'react-native-reanimated';
@@ -54,10 +54,11 @@ export default function WalletItem({ item, x, index, size, spacer }) {
                         </Pressable>}
                         {item?.text3 && <Pressable style={[NewStyles.row, NewStyles.border5, { gap: 5, padding: 5, backgroundColor: themeColor4.bgColor(0.2) }]} onPress={item?.action3}>
                             <Ionicons name={"cart"} size={24} color={item?.color} />
-                            <Text style={[NewStyles.text4,{ color: item?.color }]}>{item?.text3}</Text>
+                            <Text style={[NewStyles.text4, { color: item?.color }]}>{item?.text3}</Text>
                         </Pressable>}
                     </View>
                     <Text style={[NewStyles.text4, { color: item?.color }]}>موجودی: {item?.id == '1' ? ((user?.wallet?.gold_balance || 0.000) + ' گرم') : item?.id == '3' ? ((user?.wallet?.silver_balance || 0.000) + ' گرم') : (formatPrice(user?.wallet?.balance || 0) + ' تومان')}</Text>
+
 
                     {item?.id == '2' && <View style={NewStyles.rowWrapper}>
                         <Text style={NewStyles.text4}>شماره کارت</Text>
@@ -65,7 +66,7 @@ export default function WalletItem({ item, x, index, size, spacer }) {
                     </View>}
 
                     <View style={NewStyles.rowWrapper}>
-                        <Pressable style={[NewStyles.row, NewStyles.border5, { backgroundColor: themeColor4.bgColor(1), gap: 5, padding: 5, }, item?.id!='2' && {paddingHorizontal:20}]} onPress={item?.action1}>
+                        <Pressable style={[NewStyles.row, NewStyles.border5, { backgroundColor: themeColor4.bgColor(1), gap: 5, padding: 5, }, item?.id != '2' && { paddingHorizontal: 20 }]} onPress={item?.action1}>
                             <Ionicons name="arrow-up" size={15} color={themeColor10.bgColor(1)} />
                             <Text style={NewStyles.text10}>{item?.text1}</Text>
                         </Pressable>
@@ -76,6 +77,10 @@ export default function WalletItem({ item, x, index, size, spacer }) {
                         {item?.text4 && <Pressable style={[NewStyles.row, NewStyles.border5, { gap: 5, padding: 5 }]} onPress={item?.action4}>
                             <Ionicons name="arrow-down-circle" size={24} color={item?.color} />
                             <Text style={[NewStyles.text4, { color: item?.color }]}>{item?.text4}</Text>
+                        </Pressable>}
+                        {item?.text5 && <Pressable style={[NewStyles.row, NewStyles.border5, { gap: 5, padding: 5 }]} onPress={item?.action5}>
+                            <Ionicons name={'swap-horizontal'} size={20} color={item?.color} />
+                            <Text style={[NewStyles.text4, { color: item?.color }]}>{item?.text5}</Text>
                         </Pressable>}
 
                     </View>

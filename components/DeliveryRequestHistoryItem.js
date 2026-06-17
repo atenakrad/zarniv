@@ -8,7 +8,7 @@ import { mainUri } from '../services/URL';
 import Button from './Button';
 import { useNavigation } from '@react-navigation/native';
 
-export default function DeliveryRequestHistoryItem({ item }) {
+export default function DeliveryRequestHistoryItem({ item, type = "gold" }) {
     const { t } = useTranslation();
     const renderRow = (label, value, textStyle2 = NewStyles.text10, textStyle = NewStyles.text10) =>
         value ? (
@@ -18,8 +18,7 @@ export default function DeliveryRequestHistoryItem({ item }) {
             </Pressable>
         ) : null;
 
-    const navigation = useNavigation()
-    console.log(JSON.stringify(item, null, 2));
+    const navigation = useNavigation() 
 
     return (
         <View style={[styles.itemWrapper, NewStyles.shadow, NewStyles.border10]}>
@@ -38,16 +37,22 @@ export default function DeliveryRequestHistoryItem({ item }) {
             {item?.notes && renderRow('توضیحات ضمیمه:', ` `)}
             {item?.notes && renderRow(`${item?.notes}`, ` `)}
             {
-                item?.shipping_payment_status == 'pending' && item?.shipping_cost &&
+                item?.shipping_payment_status == 'pending' && item?.shipping_cost != 0 &&
                 <Button
                     title={'پرداخت هزینه ارسال'}
                     onPress={() => {
-                        navigation.navigate("ShippingDeliveryPayment", { physical_delivery_request_id: item?.id, shipping_cost: item?.shipping_cost })
+                        if (type == 'gold') {
+
+                            navigation.navigate("ShippingDeliveryPayment", { physical_delivery_request_id: item?.id, shipping_cost: item?.shipping_cost })
+                        } else {
+                            navigation.navigate("ShippingDeliveryPaymentSilver", { physical_delivery_silver_request_id: item?.id, shipping_cost: item?.shipping_cost })
+
+                        }
                     }}
                 />
             }
             {
-                item?.signed_delivery_form &&
+                (item?.signed_delivery_form && item?.signed_delivery_form != null) &&
                 <Button
                     title={'مشاهده فرم تحویل'}
                     onPress={() => {
