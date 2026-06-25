@@ -15,7 +15,7 @@ import {
   Dimensions,
 } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import { JEWELRY_INVENTORY } from "./data";
+import { JEWELRY_INVENTORY } from "./portfolioData";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");

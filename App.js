@@ -73,7 +73,7 @@ import SilverConvert from "./screens/wallet/SilverConvert";
 import GoldConvert from "./screens/wallet/GoldConvert";
 import GoldSilverChart from "./screens/chart/GoldSilverChart";
 import ForeignLayout from "./screens/Foreign";
-// import * as Localization from "expo-localization";
+import * as Localization from "expo-localization";
 
 function VersionCheckModal() {
   const { updateInfo, showModal, closeModal } = useVersionCheckContext();
@@ -130,7 +130,7 @@ export default function App() {
   }
 
   function isUserIranian() {
-    // return false;
+    return false;
     const locales = Localization.getLocales();
 
     const hasIranRegion = locales.some((locale) => locale.regionCode === "IR");

@@ -139,7 +139,7 @@ export default function GoldAssistant() {
           <Text style={styles.tagText}>Gold Concierge</Text>
           <View style={styles.titleRow}>
             <Text style={styles.title}>Aura-AI Advisor</Text>
-            <Ionicons name="sparkles" size={14} color="#f59e0b" style={styles.sparkle} />
+            <Ionicons name="order-bool-ascending" size={14} color="#f59e0b" style={styles.sparkle} />
           </View>
         </View>
         <View style={styles.headerBadge}>

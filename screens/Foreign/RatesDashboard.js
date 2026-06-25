@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { Feather, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
-import { HISTORIC_DATA } from "./data";
+import { HISTORIC_DATA } from "./portfolioData";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // تلاش برای ایمپورت کردن AsyncStorage در صورت نصب بودن
@@ -263,7 +263,7 @@ export default function RatesDashboard({
             <View style={styles.spotLeft}>
               <Text style={styles.spotSub}>London Spot Gold (1 oz)</Text>
               <Ionicons
-                name="sparkles"
+                name="order-bool-ascending"
                 size={12}
                 color="#f59e0b"
                 style={styles.sparkle}

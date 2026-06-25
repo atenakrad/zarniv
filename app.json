@@ -22,10 +22,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.zarniv.app",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "package": "com.zarniv.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -14,7 +14,7 @@ import {
   Dimensions
 } from "react-native";
 import { Feather, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { JEWELRY_INVENTORY } from "./data";
+import { JEWELRY_INVENTORY } from "./portfolioData";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // نکته موبایل: در صورت تمایل به ارتباط زنده با سرور خود، آدرس آن را اینجا تنظیم کنید (مثلاً http://192.168.1.50:3000)
@@ -132,7 +132,7 @@ export default function HomeScreen({ goldRate24K, onSwitchTab, onViewProduct }) 
       {/* کارت تفسیر روزانه بازار طلا */}
       <View style={styles.briefCard}>
         <View style={styles.briefHeader}>
-          <Ionicons name="sparkles" size={14} color="#f59e0b" />
+          <Ionicons name="order-bool-ascending" size={14} color="#f59e0b" />
           <Text style={styles.briefHeaderTitle}>Daily Luxury Bullion Briefing</Text>
         </View>
         
