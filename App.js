@@ -73,7 +73,7 @@ import SilverConvert from "./screens/wallet/SilverConvert";
 import GoldConvert from "./screens/wallet/GoldConvert";
 import GoldSilverChart from "./screens/chart/GoldSilverChart";
 import ForeignLayout from "./screens/Foreign";
-// import * as Localization from "expo-localization";
+import * as Localization from "expo-localization";
 
 function VersionCheckModal() {
   const { updateInfo, showModal, closeModal } = useVersionCheckContext();
