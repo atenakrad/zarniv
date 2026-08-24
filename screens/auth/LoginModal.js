@@ -19,6 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import { formatTime, handleError, showToastOrAlert } from "../../helpers/Common";
 import { removeLastScreen, removeParams } from "../../slices/lastScreenSlice";
+import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginModal() {
   const { t } = useTranslation();
@@ -175,8 +176,8 @@ export default function LoginModal() {
       if (response?.data?.success) {
         const accessToken = response?.data?.access?.replace('"', "");
         const refreshToken = response?.data?.refresh?.replace('"', "");
-        await AsyncStorage.setItem("accessToken", accessToken);
-        await AsyncStorage.setItem("refreshToken", refreshToken);
+        // await AsyncStorage.setItem("accessToken", accessToken);
+        // await AsyncStorage.setItem("refreshToken", refreshToken);
         dispatch(setAccessToken(accessToken));
         dispatch(setRefreshToken(refreshToken));
         dispatch(fetchUser(accessToken));
@@ -212,8 +213,8 @@ export default function LoginModal() {
       if (response?.data?.success) {
         const accessToken = response?.data?.access?.replace('"', "");
         const refreshToken = response?.data?.refresh?.replace('"', "");
-        await AsyncStorage.setItem("accessToken", accessToken);
-        await AsyncStorage.setItem("refreshToken", refreshToken);
+        // await AsyncStorage.setItem("accessToken", accessToken);
+        // await AsyncStorage.setItem("refreshToken", refreshToken);
         dispatch(setAccessToken(accessToken));
         dispatch(setRefreshToken(refreshToken));
         dispatch(fetchUser(accessToken));
@@ -517,29 +518,32 @@ export default function LoginModal() {
                       }}
                     />
 
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      style={[
-                        NewStyles.textInput,
-                        NewStyles.border5,
-                        styles.registerInput,
-                        styles.datePickerField,
-                      ]}
+                    <Pressable
                       onPress={() => {
                         if (error) setError("");
                         setDatePickerModal(true);
                       }}
+                      style={({ pressed }) => [
+                        styles.birthDateButton,
+                        NewStyles.border5,
+                        pressed && styles.birthDateButtonPressed,
+                      ]}
                     >
-                      <Text
-                        style={[
-                          NewStyles.text1,
-                          !birthDate && { color: themeColor10.bgColor(0.5) },
-                        ]}
-                      >
-                        {birthDate || "تاریخ تولد *"}
-                      </Text>
-                      <Text style={styles.datePickerIcon}>📅</Text>
-                    </TouchableOpacity>
+                      <View style={[NewStyles.row, { gap: 10 }]} pointerEvents="none">
+                        <Ionicons
+                          name={"calendar"}
+                          size={20}
+                          color={themeColor0.bgColor(1)}
+                        />
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            NewStyles.text1,
+                            !birthDate && NewStyles.text3,
+                          ]}
+                        > {birthDate ? birthDate : "تاریخ تولد *"} </Text>
+                      </View>
+                    </Pressable>
 
                     <TextInput
                       style={[NewStyles.textInput, NewStyles.text1, NewStyles.border5, styles.registerInput]}
@@ -660,5 +664,16 @@ const styles = StyleSheet.create({
     fontFamily: "VazirLight",
     textAlign: "center",
     lineHeight: 40,
+  },
+  birthDateButton: {
+    width: "100%",
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: themeColor4.bgColor(0.4),
+    overflow: "hidden",
+  },
+  birthDateButtonPressed: {
+    opacity: 0.8,
   },
 });

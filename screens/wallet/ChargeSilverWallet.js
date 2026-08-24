@@ -41,6 +41,8 @@ export default function ChargeSilverWallet({ navigation }) {
 
     const [weight, setWeight] = useState("")
     const [price, setPrice] = useState("")
+    const [priceWord, setPriceWord] = useState("")
+    const [inputMode, setInputMode] = useState("weight")
 
     const weightTimeoutRef = useRef(null);
     const priceTimeoutRef = useRef(null);
@@ -50,9 +52,56 @@ export default function ChargeSilverWallet({ navigation }) {
         return num.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     };
 
-    const parseNumber = (str) => {
+    const parseMoney = (str) => {
         if (!str) return 0;
-        return Number(str?.replace(/,/g, "")?.replace(/[^0-9]/g, ""));
+        return Number(
+            String(str)
+                .replace(/,/g, "")
+                .replace("٫", ".")
+        );
+    };
+
+    const sanitizeMoneyInput = (text) => {
+        const normalized = String(text ?? "")
+            .replace(/,/g, "")
+            .replace(/٫/g, ".")
+            .replace(/[^0-9.]/g, "");
+
+        const dotIndex = normalized.indexOf(".");
+        const hasDecimalPoint = dotIndex !== -1;
+
+        const integerRaw = (hasDecimalPoint ? normalized.slice(0, dotIndex) : normalized)
+            .replace(/\./g, "");
+        const integerPart = integerRaw || "0";
+
+        if (!hasDecimalPoint) {
+            return formatNumber(integerPart);
+        }
+
+        const decimalPart = normalized
+            .slice(dotIndex + 1)
+            .replace(/\./g, "")
+            .slice(0, 3);
+
+        return `${formatNumber(integerPart)}.${decimalPart}`;
+    };
+
+    const parseWeight = (str) => {
+        if (!str) return 0;
+        return Number(String(str).replace(",", "."));
+    };
+
+    const sanitizeWeightInput = (text) => {
+        const normalized = String(text ?? "").replace(/,/g, ".").replace(/[^0-9.]/g, "");
+        const dotIndex = normalized.indexOf(".");
+
+        if (dotIndex === -1) {
+            return normalized;
+        }
+
+        const integerPart = normalized.slice(0, dotIndex).replace(/\./g, "") || "0";
+        const decimalPart = normalized.slice(dotIndex + 1).replace(/\./g, "").slice(0, 3);
+        return `${integerPart}.${decimalPart}`;
     };
 
     const calculatePriceFromWeight = async (numericWeight) => {
@@ -65,7 +114,14 @@ export default function ChargeSilverWallet({ navigation }) {
         }
         try {
             const response = await dispatch(fetchSilverInfoPrice({ params: payload }))
-            return formatNumber(Math.round(response?.payload?.price));
+            const payloadData = response?.payload;
+
+            if (!payloadData || payloadData?.error) {
+                throw new Error(payloadData?.message || 'invalid response');
+            }
+
+            setPriceWord(payloadData?.price_words || "");
+            return formatNumber(Math.round(Number(payloadData?.price)));
         } catch (error) {
             showToastOrAlert('خطا در محاسبه قیمت نقره‌')
             return '0';
@@ -75,40 +131,41 @@ export default function ChargeSilverWallet({ navigation }) {
     };
 
     const calculateWeightFromPrice = async (numericPrice) => {
-        if (!numericPrice || !goldPrice) return { weight: "", price: "" };
-        const goldPricePerMg = Number(goldPrice) / 1000;
-        if (goldPricePerMg === 0) return { weight: "", price: "" };
+        if (!numericPrice || !goldPrice) return { weight: "", price: "", priceWords: "" };
 
         const payload = {
             mode: 'weight',
             price: numericPrice,
             way: 'buy'
+        };
 
-        }
         try {
-            const response = await dispatch(fetchSilverInfoPrice({ params: payload }))
-            const price =
-                response.payload.weight *
-                (response.payload.silver_price_per_mg *
-                    (1 + response.payload.silver_buy_percent / 100));
+            const response = await dispatch(fetchSilverInfoPrice({ params: payload }));
+            const payloadData = response?.payload;
+
+            if (!payloadData || payloadData?.error) {
+                throw new Error(payloadData?.message || 'invalid response');
+            }
 
             return {
-                weight: response.payload.weight.toString(),
-                price: formatNumber(Math.round(price)),
+                weight: String(payloadData.weight),
+                // مبلغ نمایش‌داده‌شده باید قیمت واقعی وزن سه‌رقمی برگشتی از بک‌اند باشد.
+                price: formatNumber(Math.round(Number(payloadData.price))),
+                priceWords: payloadData?.price_words || "",
             };
-
         } catch (error) {
             showToastOrAlert('خطا در محاسبه قیمت نقره‌')
-            return { weight: "", price: "" };
+            return { weight: "", price: "", priceWords: "" };
         }
-
     };
 
     const handleWeightChange = (text) => {
         editingField.current = "weight";
+        setInputMode("weight");
 
-        const onlyNumbers = text.replace(/[^0-9]/g, "");
+        const onlyNumbers = sanitizeWeightInput(text);
         setWeight(onlyNumbers);
+        setPriceWord("");
 
         if (weightTimeoutRef.current) {
             clearTimeout(weightTimeoutRef.current);
@@ -123,7 +180,7 @@ export default function ChargeSilverWallet({ navigation }) {
 
             if (editingField.current !== "weight") return;
 
-            const numericWeight = parseInt(onlyNumbers, 10);
+            const numericWeight = parseWeight(onlyNumbers);
 
             const calculatedPrice = await calculatePriceFromWeight(numericWeight);
 
@@ -134,17 +191,19 @@ export default function ChargeSilverWallet({ navigation }) {
 
     const handlePriceChange = (text) => {
         editingField.current = "price";
+        setInputMode("price");
 
-        const cleaned = text.replace(/[^0-9]/g, "");
-        const formatted = formatNumber(cleaned);
+        const formatted = sanitizeMoneyInput(text);
+        const numericPrice = parseMoney(formatted);
 
         setPrice(formatted);
+        setPriceWord("");
 
         if (priceTimeoutRef.current) {
             clearTimeout(priceTimeoutRef.current);
         }
 
-        if (!cleaned) {
+        if (!formatted || !Number.isFinite(numericPrice) || numericPrice <= 0) {
             setWeight("");
             return;
         }
@@ -153,12 +212,11 @@ export default function ChargeSilverWallet({ navigation }) {
 
             if (editingField.current !== "price") return;
 
-            const numericPrice = parseInt(cleaned, 10);
-
             const result = await calculateWeightFromPrice(numericPrice);
 
             setWeight(result.weight);
             setPrice(result.price);
+            setPriceWord(result.priceWords || "");
 
         }, 1000);
     };
@@ -203,24 +261,32 @@ export default function ChargeSilverWallet({ navigation }) {
     }, [handleDeepLink]);
 
     const purchase = async () => {
-        if (!weight || parseInt(weight, 10) < 1) {
-            showToastOrAlert("لطفاً مقدار معتبری برای خرید وارد کنید");
+        const cleanWeight = parseWeight(weight);
+        const cleanPrice = parseMoney(price);
+
+        if (!Number.isFinite(cleanWeight) || cleanWeight < 0.001) {
+            showToastOrAlert("حداقل مقدار خرید 0.001 گرم است");
             return;
         }
-        if (!Number.isInteger(parseFloat(weight))) {
-            showToastOrAlert("مقدار میلی‌گرم باید عدد صحیح باشد.");
+
+        if (!Number.isFinite(cleanPrice) || cleanPrice <= 0) {
+            showToastOrAlert("لطفاً مبلغ معتبری وارد کنید");
             return;
         }
+
         setLoading(true);
-        const cleanWeight = parseNumber(weight);
-        const cleanPrice = parseNumber(price);
         try {
-            const response = await axios.post(`${uri}/chargeSilverWallet/`, { weight: cleanWeight, price: cleanPrice, }, { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } });
+            const response = await axios.post(
+                `${uri}/chargeSilverWallet/`,
+                { weight: cleanWeight, price: cleanPrice, mode: inputMode },
+                { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } }
+            );
 
             dispatch(fetchUser(accessToken));
             showToastOrAlert('خرید نقره با موفقیت انجام شد.');
             setPrice("")
             setWeight("")
+            setPriceWord("")
         } catch (error) {
             handleError(error, t)
         } finally {
@@ -252,29 +318,34 @@ export default function ChargeSilverWallet({ navigation }) {
                         </View>}
 
                         <View style={NewStyles.rowWrapper}>
-                            <Text style={NewStyles.text10}>نرخ هر میلی گرم نقره‌</Text>
-                            <Text style={NewStyles.text10}>{formatPrice((Number(goldPrice) / 1000)?.toFixed())} تومان</Text>
+                            <Text style={NewStyles.text10}>نرخ هر گرم نقره‌</Text>
+                            <Text style={NewStyles.text10}>{formatPrice(Number(goldPrice)?.toFixed())} تومان</Text>
                         </View>
 
                         <TextInput
                             style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
                             placeholderTextColor={themeColor10.bgColor(0.5)}
-                            keyboardType={'number-pad'}
-                            placeholder='مقدار بر حسب میلی گرم'
+                            keyboardType={'decimal-pad'}
+                            placeholder='مقدار بر حسب گرم (تا ۳ رقم اعشار)'
                             value={weight}
-                            maxLength={5}
+                            maxLength={8}
                             onChangeText={handleWeightChange}
                         />
 
                         <TextInput
                             style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
                             placeholderTextColor={themeColor10.bgColor(0.5)}
-                            keyboardType={'number-pad'}
-                            placeholder='مقدار بر حسب تومان'
+                            keyboardType={'decimal-pad'}
+                            placeholder='مبلغ به تومان (تا ۳ رقم اعشار)'
                             value={price}
                             onChangeText={handlePriceChange}
                             onBlur={handlePriceBlur}
                         />
+                        {priceWord?.trim() && (
+                            <Text style={[NewStyles.text1, { fontSize: 13 }]}>
+                                {priceWord}
+                            </Text>
+                        )}
 
                         <View style={[NewStyles.rowWrapper, { gap: 10 }]}>
                             <View style={{ flex: 1 }}>
@@ -299,7 +370,7 @@ export default function ChargeSilverWallet({ navigation }) {
                         <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
                             <View style={NewStyles.rowWrapper}>
                                 <Text style={NewStyles.text10}>دارایی نقره‌</Text>
-                                <Text style={NewStyles.text10}>{formatPrice(user?.wallet?.silver_balance * 1000) || '0'} میلی گرم</Text>
+                                <Text style={NewStyles.text10}>{formatPrice(user?.wallet?.silver_balance) || '0'} گرم</Text>
                             </View>
                             <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                             <View style={NewStyles.rowWrapper}>

@@ -29,8 +29,7 @@ export default function Purchase({ navigation }) {
     const trading = useSelector((state) => state?.trading)
     const tradingData = trading?.data
     const goldPrice = goldInfo?.gold_price_per_gram;
-    const editingField = useRef(null);
-
+    const editingField = useRef(null); 
     useEffect(() => {
         dispatch(fetchInfoPrice({ params: null }))
         dispatch(fetchTradingAllowed())
@@ -42,6 +41,8 @@ export default function Purchase({ navigation }) {
 
     const [weight, setWeight] = useState("")
     const [price, setPrice] = useState("")
+    const [priceWord, setPriceWord] = useState("")
+    const [inputMode, setInputMode] = useState("weight")
 
     const weightTimeoutRef = useRef(null);
     const priceTimeoutRef = useRef(null);
@@ -51,9 +52,27 @@ export default function Purchase({ navigation }) {
         return num.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     };
 
-    const parseNumber = (str) => {
+    const parseMoney = (str) => {
         if (!str) return 0;
-        return Number(str?.replace(/,/g, "")?.replace(/[^0-9]/g, ""));
+        return Number(String(str).replace(/[^0-9]/g, ""));
+    };
+
+    const parseWeight = (str) => {
+        if (!str) return 0;
+        return Number(String(str).replace(",", "."));
+    };
+
+    const sanitizeWeightInput = (text) => {
+        const normalized = String(text ?? "").replace(/,/g, ".").replace(/[^0-9.]/g, "");
+        const dotIndex = normalized.indexOf(".");
+
+        if (dotIndex === -1) {
+            return normalized;
+        }
+
+        const integerPart = normalized.slice(0, dotIndex).replace(/\./g, "") || "0";
+        const decimalPart = normalized.slice(dotIndex + 1).replace(/\./g, "").slice(0, 3);
+        return `${integerPart}.${decimalPart}`;
     };
 
     const calculatePriceFromWeight = async (numericWeight) => {
@@ -65,10 +84,8 @@ export default function Purchase({ navigation }) {
 
         }
         try {
-            const response = await dispatch(fetchInfoPrice({ params: payload }))
-            console.log('====================================');
-            console.log(JSON.stringify(response, null, 2));
-            console.log('====================================');
+            const response = await dispatch(fetchInfoPrice({ params: payload })) 
+            setPriceWord(response?.payload?.price_words)
             return formatNumber(Math.round(response?.payload?.price));
         } catch (error) {
             showToastOrAlert('خطا در محاسبه قیمت طلا')
@@ -80,38 +97,39 @@ export default function Purchase({ navigation }) {
 
     const calculateWeightFromPrice = async (numericPrice) => {
         if (!numericPrice || !goldPrice) return { weight: "", price: "" };
-        const goldPricePerMg = Number(goldPrice) / 1000;
-        if (goldPricePerMg === 0) return { weight: "", price: "" };
 
         const payload = {
             mode: 'weight',
             price: numericPrice,
             way: 'buy'
+        };
 
-        }
         try {
-            const response = await dispatch(fetchInfoPrice({ params: payload }))
-            const price =
-                response.payload.weight *
-                (response.payload.gold_price_per_mg *
-                    (1 + response.payload.gold_buy_percent / 100));
+            const response = await dispatch(fetchInfoPrice({ params: payload }));
+            const payloadData = response?.payload;
+
+            if (!payloadData || payloadData?.error) {
+                throw new Error(payloadData?.message || 'invalid response');
+            }
+
+            setPriceWord(payloadData?.price_words || "");
 
             return {
-                weight: response.payload.weight.toString(),
-                price: formatNumber(Math.round(price)),
+                weight: String(payloadData.weight),
+                // بک‌اند وزن را تا 3 رقم اعشار نهایی کرده و قیمت واقعی همان وزن را برمی‌گرداند.
+                price: formatNumber(Math.round(Number(payloadData.price))),
             };
-
         } catch (error) {
             showToastOrAlert('خطا در محاسبه قیمت طلا')
             return { weight: "", price: "" };
         }
-
     };
 
     const handleWeightChange = (text) => {
         editingField.current = "weight";
+        setInputMode("weight");
 
-        const onlyNumbers = text.replace(/[^0-9]/g, "");
+        const onlyNumbers = sanitizeWeightInput(text);
         setWeight(onlyNumbers);
 
         if (weightTimeoutRef.current) {
@@ -120,6 +138,7 @@ export default function Purchase({ navigation }) {
 
         if (!onlyNumbers) {
             setPrice("");
+            setPriceWord("")
             return;
         }
 
@@ -127,7 +146,7 @@ export default function Purchase({ navigation }) {
 
             if (editingField.current !== "weight") return;
 
-            const numericWeight = parseInt(onlyNumbers, 10);
+            const numericWeight = parseWeight(onlyNumbers);
 
             const calculatedPrice = await calculatePriceFromWeight(numericWeight);
 
@@ -138,6 +157,7 @@ export default function Purchase({ navigation }) {
 
     const handlePriceChange = (text) => {
         editingField.current = "price";
+        setInputMode("price");
 
         const cleaned = text.replace(/[^0-9]/g, "");
         const formatted = formatNumber(cleaned);
@@ -150,6 +170,7 @@ export default function Purchase({ navigation }) {
 
         if (!cleaned) {
             setWeight("");
+            setPriceWord("");
             return;
         }
 
@@ -188,23 +209,31 @@ export default function Purchase({ navigation }) {
 
 
     const purchase = async () => {
-        if (!weight || parseInt(weight, 10) < 1) {
-            showToastOrAlert("لطفاً مقدار معتبری برای خرید وارد کنید");
+        const cleanWeight = parseWeight(weight);
+        const cleanPrice = parseMoney(price);
+
+        if (!Number.isFinite(cleanWeight) || cleanWeight < 0.001) {
+            showToastOrAlert("حداقل مقدار خرید 0.001 گرم است");
             return;
         }
-        if (!Number.isInteger(parseFloat(weight))) {
-            showToastOrAlert("مقدار میلی‌گرم باید عدد صحیح باشد.");
+
+        if (!Number.isFinite(cleanPrice) || cleanPrice <= 0) {
+            showToastOrAlert("لطفاً مبلغ معتبری وارد کنید");
             return;
         }
+
         setLoading(true);
-        const cleanWeight = parseNumber(weight);
-        const cleanPrice = parseNumber(price);
         try {
-            const response = await axios.post(`${uri}/chargeGoldWallet/`, { weight: cleanWeight, price: cleanPrice, }, { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } });
+            const response = await axios.post(
+                `${uri}/chargeGoldWallet/`,
+                { weight: cleanWeight, price: cleanPrice, mode: inputMode },
+                { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } }
+            );
             dispatch(fetchUser(accessToken));
             showToastOrAlert('خرید طلا با موفقیت انجام شد.');
             setPrice("")
             setWeight("")
+            setPriceWord("")
         } catch (error) {
             handleError(error, t)
         } finally {
@@ -241,17 +270,17 @@ export default function Purchase({ navigation }) {
                             </View>}
 
                             <View style={NewStyles.rowWrapper}>
-                                <Text style={NewStyles.text10}>نرخ هر میلی گرم طلای 18 عیار</Text>
-                                <Text style={NewStyles.text10}>{formatPrice((Number(goldPrice) / 1000)?.toFixed())} تومان</Text>
+                                <Text style={NewStyles.text10}>نرخ هر گرم طلای 18 عیار</Text>
+                                <Text style={NewStyles.text10}>{formatPrice((Number(goldPrice))?.toFixed())} تومان</Text>
                             </View>
 
                             <TextInput
                                 style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
                                 placeholderTextColor={themeColor10.bgColor(0.5)}
-                                keyboardType={'number-pad'}
-                                placeholder='مقدار بر حسب میلی گرم'
+                                keyboardType={'decimal-pad'}
+                                placeholder='مقدار بر حسب گرم (تا ۳ رقم اعشار)'
                                 value={weight}
-                                maxLength={5}
+                                maxLength={8}
                                 onChangeText={handleWeightChange}
                             />
 
@@ -264,6 +293,7 @@ export default function Purchase({ navigation }) {
                                 onChangeText={handlePriceChange}
                                 onBlur={handlePriceBlur}
                             />
+                            {priceWord?.trim() && <Text style={[NewStyles.text1,{fontSize:13}]}>{priceWord}</Text>}
 
                             <View style={[NewStyles.rowWrapper, { gap: 10 }]}>
                                 <View style={{ flex: 1 }}>
@@ -288,7 +318,7 @@ export default function Purchase({ navigation }) {
                             <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
                                 <View style={NewStyles.rowWrapper}>
                                     <Text style={NewStyles.text10}>دارایی طلا</Text>
-                                    <Text style={NewStyles.text10}>{formatPrice(user?.wallet?.gold_balance * 1000) || '0'} میلی گرم</Text>
+                                    <Text style={NewStyles.text10}>{formatPrice(user?.wallet?.gold_balance) || '0'} گرم</Text>
                                 </View>
                                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                                 <View style={NewStyles.rowWrapper}>
@@ -299,6 +329,11 @@ export default function Purchase({ navigation }) {
                                 <View style={NewStyles.rowWrapper}>
                                     <Text style={NewStyles.text10}>کارمزد خرید</Text>
                                     <Text style={NewStyles.text10}>{goldInfo?.gold_buy_percent} درصد</Text>
+                                </View>
+                                <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
+                                <View style={NewStyles.rowWrapper}>
+                                    <Text style={[NewStyles.text10, { flex: 1, paddingLeft: 10 }]}>قیمت خرید هر گرم طلا براساس طلای 18 عیار</Text>
+                                    <Text style={NewStyles.text10}>{formatPrice((1 + Number(goldInfo?.gold_buy_percent) / 100) * goldPrice)} تومان</Text>
                                 </View>
                             </View>
 

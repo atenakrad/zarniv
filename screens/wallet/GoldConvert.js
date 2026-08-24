@@ -53,13 +53,35 @@ export default function GoldConvert({ navigation }) {
     return num.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
 
-  const parseNumber = (str) => {
+  const parseMoney = (str) => {
     if (!str) return 0;
-    return Number(str?.replace(/,/g, "")?.replace(/[^0-9]/g, ""));
+    return Number(String(str).replace(/[^0-9]/g, ""));
+  };
+
+  const parseWeight = (str) => {
+    if (!str) return 0;
+    return Number(String(str).replace(",", "."));
+  };
+
+  const sanitizeWeightInput = (text) => {
+    const normalized = String(text ?? "")
+      .replace(/,/g, ".")
+      .replace(/[^0-9.]/g, "");
+
+    const dotIndex = normalized.indexOf(".");
+    if (dotIndex === -1) return normalized;
+
+    const integerPart = normalized.slice(0, dotIndex).replace(/\./g, "") || "0";
+    const decimalPart = normalized
+      .slice(dotIndex + 1)
+      .replace(/\./g, "")
+      .slice(0, 3);
+
+    return `${integerPart}.${decimalPart}`;
   };
 
   const calculatePriceFromWeight = async (numericWeight) => {
-    if (!numericWeight || !goldPrice) return "";
+    if (!numericWeight) return "";
     const payload = {
       mode: 'price',
       weight: numericWeight,
@@ -85,7 +107,7 @@ export default function GoldConvert({ navigation }) {
   const handleWeightChange = (text) => {
     editingField.current = "weight";
 
-    const onlyNumbers = text.replace(/[^0-9]/g, "");
+    const onlyNumbers = sanitizeWeightInput(text);
     setWeight(onlyNumbers);
 
     if (weightTimeoutRef.current) {
@@ -102,7 +124,7 @@ export default function GoldConvert({ navigation }) {
 
       if (editingField.current !== "weight") return;
 
-      const numericWeight = parseInt(onlyNumbers, 10);
+      const numericWeight = parseWeight(onlyNumbers);
 
       const { calculatedPrice, final_silver_gram } = await calculatePriceFromWeight(numericWeight);
 
@@ -126,17 +148,20 @@ export default function GoldConvert({ navigation }) {
 
 
   const purchase = async () => {
-    if (!weight || parseInt(weight, 10) < 1) {
-      showToastOrAlert("لطفاً مقدار معتبری برای خرید وارد کنید");
+    const cleanWeight = parseWeight(weight);
+    const cleanPrice = parseMoney(price);
+
+    if (!Number.isFinite(cleanWeight) || cleanWeight < 0.001) {
+      showToastOrAlert("حداقل مقدار تبدیل 0.001 گرم است");
       return;
     }
-    if (!Number.isInteger(parseFloat(weight))) {
-      showToastOrAlert("مقدار میلی‌گرم باید عدد صحیح باشد.");
+
+    if (!Number.isFinite(cleanPrice) || cleanPrice <= 0) {
+      showToastOrAlert("مبلغ محاسبه‌شده معتبر نیست");
       return;
     }
+
     setLoading(true);
-    const cleanWeight = parseNumber(weight);
-    const cleanPrice = parseNumber(price);
     const payload = {
       mode: 'price',
       weight: cleanWeight,
@@ -195,16 +220,16 @@ export default function GoldConvert({ navigation }) {
               </View>
               <View style={{}}>
                 <Text style={NewStyles.text6}>توجه</Text>
-                <Text style={NewStyles.text10}>وزن را بر حسب میلی‌گرم وارد کنید. (1 گرم = 1000 میلی‌گرم)</Text>
+                <Text style={NewStyles.text10}>وزن را بر حسب گرم وارد کنید. حداکثر ۳ رقم اعشار مجاز است.</Text>
               </View>
 
               <TextInput
                 style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
                 placeholderTextColor={themeColor10.bgColor(0.5)}
-                keyboardType={'number-pad'}
-                placeholder='مقدار بر حسب میلی گرم'
+                keyboardType={'decimal-pad'}
+                placeholder='مقدار بر حسب گرم'
                 value={weight}
-                maxLength={5}
+                maxLength={10}
                 onChangeText={handleWeightChange}
               />
 
@@ -238,7 +263,7 @@ export default function GoldConvert({ navigation }) {
                   <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                   <View style={NewStyles.rowWrapper}>
                     <Text style={NewStyles.text10}>گرم معادل با نقره</Text>
-                    <Text style={NewStyles.text10}>{silverGram} میلی گرم</Text>
+                    <Text style={NewStyles.text10}>{silverGram} گرم</Text>
                   </View>
                 </>}
 
