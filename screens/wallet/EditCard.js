@@ -44,14 +44,12 @@ export default function EditCard({ navigation }) {
     };
 
     return (
-        <SafeAreaView style={NewStyles.container} edges={{ top: 'additive', bottom: 'additive' }}>
+        <SafeAreaView style={NewStyles.container} edges={{ top: 'off', bottom: 'additive' }}>
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={'padding'}>
                 <ScrollView contentContainerStyle={styles.contentContainerStyle} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={userLoading} onRefresh={() => {
                     dispatch(fetchUser(accessToken))
                 }} />}>
-                    <View style={NewStyles.center}>
-                        <Text style={NewStyles.heading10}>احراز اطلاعات بانکی</Text>
-                    </View>
+                     
                     <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor10.bgColor(0.2) }} />
 
                     {(!user?.is_national_birth_verified || !user?.is_phone_national_verified) && <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor6.bgColor(0.1) }, NewStyles.border10]}>
@@ -99,8 +97,7 @@ export default function EditCard({ navigation }) {
 
 const styles = StyleSheet.create({
     contentContainerStyle: {
-        paddingHorizontal: '5%',
-        paddingVertical: '5%',
+        paddingHorizontal: '5%', 
         gap: 10,
     },
     button: {

@@ -18,14 +18,14 @@ export default function GemItem({ item, index, columns, navigation, width }) {
     const image = item?.gallery?.[0];
     const price = Number(item?.old_price)?.toFixed(0);
     const discountedPrice = Number(item?.old_price)?.toFixed(0) - Number(item?.old_price)?.toFixed(0) * item?.discount_percent / 100;
-    const discountedPercent = item?.discount_percent; 
+    const discountedPercent = item?.discount_percent;
     return (
         <Pressable style={[styles.contentWrapper, NewStyles.border5]} onPress={() => navigation.navigate('Gem Detail', { gemId: item?.id })}>
             <View style={{ height: 170, width: '100%' }}>
                 {image ? <Image style={styles.content} source={{ uri: `${mainUri}${image?.file_name || image?.image}` }} /> : <ImageThumbnail height={200} />}
             </View>
             <View style={{ justifyContent: 'space-evenly', paddingHorizontal: 15, paddingVertical: 20 }}>
-                <Text style={NewStyles.title10} numberOfLines={1}>{item?.name}</Text>
+                <Text style={NewStyles.title10}> {item?.name} </Text>
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
                     {discountedPrice < price ?
                         <View>
@@ -42,11 +42,11 @@ export default function GemItem({ item, index, columns, navigation, width }) {
             </View>
             {
                 item?.labels?.length > 0 &&
-                <View style={{paddingHorizontal:10, paddingBottom:10, gap:5}}>
+                <View style={{ paddingHorizontal: 10, paddingBottom: 10, gap: 5 }}>
                     {
                         item?.labels?.map(label => {
                             return (
-                                <View key={label?.id} style={[{ backgroundColor: label?.color_code, paddingHorizontal: 8, paddingVertical: 4 , alignSelf:'flex-end', }, NewStyles.border100]}>
+                                <View key={label?.id} style={[{ backgroundColor: label?.color_code, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-end', }, NewStyles.border100]}>
                                     <Text style={[NewStyles.title4, { fontSize: 11 }]}>{label?.title}</Text>
                                 </View>
                             )

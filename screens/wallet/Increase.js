@@ -34,7 +34,7 @@ export default function Increase({ navigation }) {
         const subscription = Linking.addEventListener("url", ({ url }) => {
             const { queryParams } = Linking.parse(url);
             console.log(queryParams);
-            
+
             if (queryParams?.Status == 'OK' && queryParams?.type == 'wallet') {
                 dispatch(fetchUser(accessToken));
                 showToastOrAlert('کیف پول شما با موفقیت شارژ شد.');
@@ -73,13 +73,11 @@ export default function Increase({ navigation }) {
     }, [])
 
     return (
-        <SafeAreaView style={NewStyles.container}>
+        <SafeAreaView style={NewStyles.container} edges={{ top: 'off', bottom: 'additive' }}>
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={'padding'}>
 
                 <ScrollView contentContainerStyle={styles.contentContainerStyle}>
-                    <View style={NewStyles.center}>
-                        <Text style={NewStyles.heading10}>افزایش موجودی</Text>
-                    </View>
+
                     <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                     <Text style={NewStyles.text10}>مبلغ مورد نظر خود را به تومان وارد کنید.</Text>
                     <TextInput style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]} placeholderTextColor={themeColor10.bgColor(0.5)} keyboardType={Platform?.OS == 'ios' ? 'numbers-and-punctuation' : 'number-pad'} placeholder='مبلغ به تومان' value={amount?.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ",")} onChangeText={(text) => { setAmount(text?.replace(/,/g, "")) }} />
@@ -109,7 +107,7 @@ export default function Increase({ navigation }) {
 const styles = StyleSheet.create({
     contentContainerStyle: {
         paddingHorizontal: '5%',
-        paddingVertical: '5%',
+        paddingBottom: '5%',
         gap: 10,
     },
 });

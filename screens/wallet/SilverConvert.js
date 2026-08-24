@@ -168,7 +168,7 @@ export default function SilverConvert({ navigation }) {
 
 
   return (
-    <SafeAreaView style={NewStyles.container} edges={{ top: 'additive', bottom: 'additive' }}>
+    <SafeAreaView style={NewStyles.container} edges={{ top: 'off', bottom: 'additive' }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={'padding'}>
         {
           tradingData?.allowed ?
@@ -178,9 +178,7 @@ export default function SilverConvert({ navigation }) {
               dispatch(fetchSilverInfoPrice({ params: null }))
               dispatch(fetchTradingAllowed())
             }} />}>
-              <View style={NewStyles.center}>
-                <Text style={NewStyles.title10}>تبدیل نقره به طلا</Text>
-              </View>
+               
               <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
 
               {(!user?.is_national_birth_verified || !user?.is_phone_national_verified) && <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
@@ -271,7 +269,7 @@ export default function SilverConvert({ navigation }) {
 const styles = StyleSheet.create({
   contentContainerStyle: {
     paddingHorizontal: '5%',
-    paddingVertical: '5%',
+    paddingBottom: '5%',
     gap: 10,
   },
 });

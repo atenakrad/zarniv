@@ -143,10 +143,31 @@ export default function App() {
               {/* Wallet */}
 
               <Stack.Screen name='EditCard' component={EditCard}
-
+                options={{
+                  headerShown: true,
+                  header: () => {
+                    return (
+                      <BackHeader title={'احراز اطلاعات بانکی'} />
+                    )
+                  }
+                }}
               />
-              <Stack.Screen name='Decrease' component={Decrease} />
-              <Stack.Screen name='Increase' component={Increase} />
+              <Stack.Screen name='Decrease' component={Decrease} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'درخواست برداشت'} />
+                  )
+                }
+              }} />
+              <Stack.Screen name='Increase' component={Increase} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'احراز اطلاعات بانکی'} />
+                  )
+                }
+              }} />
               {/* Wallet */}
 
               <Stack.Screen name='Rate Detail' component={RateDetail}
@@ -198,21 +219,98 @@ export default function App() {
                   )
                 }
               }} />
-              <Stack.Screen name='Order Detail' component={OrderDetail} />
+              <Stack.Screen name='Order Detail' component={OrderDetail}  options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'جزئیات سفارش'} />
+                  )
+                }
+              }} />
               <Stack.Screen name='Verify' component={Verify} />
-              <Stack.Screen name='Purchase' component={Purchase} />
-              <Stack.Screen name='ChargeSilverWallet' component={ChargeSilverWallet} />
-              <Stack.Screen name='SilverConvert' component={SilverConvert} />
-              <Stack.Screen name='GoldConvert' component={GoldConvert} />
+              <Stack.Screen name='Purchase' component={Purchase} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'خرید طلای آب شده'} />
+                  )
+                }
+              }} />
+              <Stack.Screen name='ChargeSilverWallet' component={ChargeSilverWallet} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'خرید نقره‌ی آب شده'} />
+                  )
+                }
+              }} />
+              <Stack.Screen name='SilverConvert' component={SilverConvert} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'تبدیل نقره به طلا'} />
+                  )
+                }
+              }} />
+              <Stack.Screen name='GoldConvert' component={GoldConvert} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'تبدیل طلا به نقره'} />
+                  )
+                }
+              }} />
               <Stack.Screen name='SilverDeliveryRequest' component={SilverDeliveryRequest} />
-              <Stack.Screen name='GoldSellRequest' component={GoldSellRequest} />
-              <Stack.Screen name='SilverSellRequest' component={SilverSellRequest} />
-              <Stack.Screen name='SellSilverRequestHistory' component={SellSilverRequestHistory} />
-              <Stack.Screen name='SellRequestHistory' component={SellRequestHistory} />
-              <Stack.Screen name='SilverDeliveryRequestHistory' component={SilverDeliveryRequestHistory} />
+              <Stack.Screen name='GoldSellRequest' component={GoldSellRequest} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'فروش طلای آب شده'} />
+                  )
+                }
+              }} />
+              <Stack.Screen name='SilverSellRequest' component={SilverSellRequest} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'فروش نقره‌ی آب شده'} />
+                  )
+                }
+              }} />
+              <Stack.Screen name='SellSilverRequestHistory' component={SellSilverRequestHistory} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'درخواست‌های فروش نقره'} />
+                  )
+                }
+              }} />
+              <Stack.Screen name='SellRequestHistory' component={SellRequestHistory} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'درخواست‌های فروش طلا'} />
+                  )
+                }
+              }} />
+              <Stack.Screen name='SilverDeliveryRequestHistory' component={SilverDeliveryRequestHistory} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'درخواست های تحویل حضوری'} />
+                  )
+                }
+              }} />
 
               {/* Account */}
-              <Stack.Screen name='Profile' component={Profile} />
+              <Stack.Screen name='Profile' component={Profile} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'پروفایل'} />
+                  )
+                }
+              }}/>
               <Stack.Screen name='Orders' component={Orders} options={{
                 headerShown: true,
                 header: () => {
@@ -222,10 +320,12 @@ export default function App() {
                 }
               }} />
               <Stack.Screen name='GoldSilverChart' component={GoldSilverChart} options={{
-                headerShown: false,
-                header: () => {
+                headerShown: true,
+                header: ({ route }) => {
+                  console.log(route?.params?.params?.metal);
+
                   return (
-                    <BackHeader title={'سود و زیان'} />
+                    <BackHeader title={route?.params?.params?.metal == 'silver' ? 'سود و زیان نقره' : 'سود و زیان طلا'} />
                   )
                 }
               }} />
@@ -254,7 +354,14 @@ export default function App() {
                 }
               }} />
               <Stack.Screen name='DeliveryRequest' component={DeliveryRequest} />
-              <Stack.Screen name='DeliveryRequestHistory' component={DeliveryRequestHistory} />
+              <Stack.Screen name='DeliveryRequestHistory' component={DeliveryRequestHistory} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'درخواست‌های تحویل حضوری'} />
+                  )
+                }
+              }} />
               <Stack.Screen name='Privacy' component={Privacy} options={{
                 headerShown: true,
                 header: () => {
@@ -300,7 +407,15 @@ export default function App() {
               {/* Account */}
 
               {/* Shop */}
-              <Stack.Screen name='Product Detail' component={ProductDetail} />
+              <Stack.Screen name='Product Detail' component={ProductDetail} options={{
+                headerShown: true,
+                header: ({ route }) => {
+
+                  return (
+                    <BackHeader title={'جزئیات محصول'} />
+                  )
+                }
+              }} />
               <Stack.Screen name='Search' component={Search} options={{
                 headerShown: true,
                 header: () => {
@@ -318,12 +433,30 @@ export default function App() {
                 }
               }} />
               <Stack.Screen name='Gem Detail' component={GemDetail} options={{
-                headerShown: false,
-
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'جزئیات محصول'} />
+                  )
+                }
               }} />
               <Stack.Screen name='Submit Order' component={SubmitOrder} />
-              <Stack.Screen name='Gems' component={Gems} />
-              <Stack.Screen name='Products' component={Products} />
+              <Stack.Screen name='Gems' component={Gems}  options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'محصولات'} />
+                  )
+                }
+              }} />
+              <Stack.Screen name='Products' component={Products} options={{
+                headerShown: true,
+                header: () => {
+                  return (
+                    <BackHeader title={'محصولات'} />
+                  )
+                }
+              }} />
               {/* Shop */}
 
             </Stack.Navigator>

@@ -49,7 +49,7 @@ export default function Gems({ route, navigation }) {
         )
     }
     return (
-        <SafeAreaView style={NewStyles.container}>
+        <SafeAreaView style={NewStyles.container} edges={{top:'off', bottom:'off'}}>
             <CustomStatusBar />
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollViewContainer} refreshControl={<RefreshControl colors={[themeColor0.bgColor(1)]} refreshing={refreshing} onRefresh={() => { setRefreshing(true); }} />}>
                 <View style={{ gap: 10 }}>
@@ -95,7 +95,7 @@ export default function Gems({ route, navigation }) {
 
 const styles = StyleSheet.create({
     scrollViewContainer: {
-        paddingTop: 20,
+        paddingBottom: 20,
         gap: 20
     },
     contentContainerStyle: {

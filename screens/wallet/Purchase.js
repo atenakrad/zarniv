@@ -66,6 +66,9 @@ export default function Purchase({ navigation }) {
         }
         try {
             const response = await dispatch(fetchInfoPrice({ params: payload }))
+            console.log('====================================');
+            console.log(JSON.stringify(response, null, 2));
+            console.log('====================================');
             return formatNumber(Math.round(response?.payload?.price));
         } catch (error) {
             showToastOrAlert('خطا در محاسبه قیمت طلا')
@@ -202,7 +205,7 @@ export default function Purchase({ navigation }) {
             showToastOrAlert('خرید طلا با موفقیت انجام شد.');
             setPrice("")
             setWeight("")
-        } catch (error) { 
+        } catch (error) {
             handleError(error, t)
         } finally {
             dispatch(fetchTradingAllowed())
@@ -213,7 +216,7 @@ export default function Purchase({ navigation }) {
 
 
     return (
-        <SafeAreaView style={NewStyles.container} edges={{ top: 'additive', bottom: 'additive' }}>
+        <SafeAreaView style={NewStyles.container} edges={{ top: 'off', bottom: 'additive' }}>
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={'padding'}>
                 {
                     tradingData?.allowed ?
@@ -223,9 +226,6 @@ export default function Purchase({ navigation }) {
                             dispatch(fetchInfoPrice({ params: null }))
                             dispatch(fetchTradingAllowed())
                         }} />}>
-                            <View style={NewStyles.center}>
-                                <Text style={NewStyles.heading10}>خرید طلای آب شده</Text>
-                            </View>
                             <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
 
                             {(!user?.is_national_birth_verified || !user?.is_phone_national_verified) && <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
@@ -325,7 +325,7 @@ export default function Purchase({ navigation }) {
 const styles = StyleSheet.create({
     contentContainerStyle: {
         paddingHorizontal: '5%',
-        paddingVertical: '5%',
+        paddingBottom: '5%',
         gap: 10,
     },
 });

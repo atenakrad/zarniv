@@ -17,6 +17,7 @@ import { fetchInfoPrice } from '../../slices/goldInfoSlice';
 import { fetchInformation } from '../../slices/informationSlice';
 import InformationModal from '../../components/InformationModal';
 import { fetchPackaging } from '../../slices/packagingSlice';
+import BackHeader from '../../components/BackHeader';
 
 export default function Address({ navigation }) {
 
@@ -63,34 +64,22 @@ export default function Address({ navigation }) {
     }
 
     return (
-        <SafeAreaView style={NewStyles.container}>
+        <SafeAreaView style={NewStyles.container} edges={{ top: 'off', bottom: 'additive' }}>
+            <BackHeader title={'ثبت آدرس'} rightIcon={true} iconName={'storefront'} rightIconPress={() => { navigation.navigate('MainLayout', { screen: 'Shop' }) }} />
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={'padding'}>
                 <ScrollView showsVerticalScrollIndicator={false}>
 
                     <View style={styles.contentContainerStyle}>
-                        <View style={NewStyles.rowWrapper}>
-                            <View style={{ flex: 1, alignItems: 'flex-end' }} >
-                                <TouchableOpacity style={[NewStyles.rowWrapper, { paddingHorizontal: 10, backgroundColor: themeColor6.bgColor(0.1), gap: 5 }, NewStyles.border100, NewStyles.center]} onPress={() => {
-                                    setVisible(true)
-                                }}>
-                                    <Ionicons
-                                        name={'information-circle-outline'}
-                                        size={20}
-                                        color={themeColor6.bgColor(1)}
-                                    />
-                                    <Text style={NewStyles.title6}>راهنما</Text>
-                                </TouchableOpacity>
-                            </View>
-                            <View style={[{ flex: 1 }, NewStyles.center]}>
-                                <Text style={NewStyles.heading10}>ثبت آدرس</Text>
-                            </View>
-                            <View style={[{ flex: 1, alignItems: 'flex-start' },]}>
-                                <TouchableOpacity style={{ padding: 10 }} onPress={() => { navigation.navigate('MainLayout', { screen: 'Shop' }) }}>
-                                    <Ionicons name={'storefront'} size={20} color={themeColor0.bgColor(1)} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                        <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
+                        <TouchableOpacity style={[NewStyles.rowWrapper, { paddingHorizontal: 10, backgroundColor: themeColor6.bgColor(0.1), gap: 5, alignSelf:'flex-end' }, NewStyles.border100, NewStyles.center]} onPress={() => {
+                            setVisible(true)
+                        }}>
+                            <Ionicons
+                                name={'information-circle-outline'}
+                                size={20}
+                                color={themeColor6.bgColor(1)}
+                            />
+                            <Text style={NewStyles.title6}>راهنما</Text>
+                        </TouchableOpacity>
 
                         <View style={[NewStyles.rowWrapper, { gap: 5 }]}>
                             <View style={{ flex: 1, gap: 5 }}>
@@ -238,7 +227,7 @@ export default function Address({ navigation }) {
 const styles = StyleSheet.create({
     contentContainerStyle: {
         paddingHorizontal: '5%',
-        paddingVertical: '5%',
+        paddingBottom: '5%',
         gap: 10,
     },
     field: {

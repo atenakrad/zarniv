@@ -63,11 +63,9 @@ export default function Decrease({ navigation }) {
     }, [refreshing]);
 
     return (
-        <SafeAreaView edges={{ top: 'additive', bottom: 'additive' }} style={NewStyles.container}>
-            <ScrollView refreshControl={<RefreshControl colors={[themeColor0.bgColor(1)]} progressBackgroundColor={themeColor1.bgColor(1)} refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData();  }} />} contentContainerStyle={[styles.contentContainerStyle, { paddingHorizontal: 0 }]} showsVerticalScrollIndicator={false}>
-                <View style={NewStyles.center}>
-                    <Text style={NewStyles.heading10}>درخواست برداشت</Text>
-                </View>
+        <SafeAreaView edges={{ top: 'off', bottom: 'additive' }} style={NewStyles.container}>
+            <ScrollView refreshControl={<RefreshControl colors={[themeColor0.bgColor(1)]} progressBackgroundColor={themeColor1.bgColor(1)} refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} />} contentContainerStyle={[styles.contentContainerStyle, { paddingHorizontal: 0, paddingTop: 0 }]} showsVerticalScrollIndicator={false}>
+
                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                 {(!user?.is_national_birth_verified || !user?.is_phone_national_verified) && <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1), paddingHorizontal: '5%' }, NewStyles.border10, NewStyles.shadow]}>
                     <View style={[NewStyles.row, { gap: 10 }]}>
@@ -91,7 +89,7 @@ export default function Decrease({ navigation }) {
                         }}
                     />
                 </View>}
-                <View style={{paddingHorizontal:'5%', gap:10}}>
+                <View style={{ paddingHorizontal: '5%', gap: 10 }}>
 
                     <Text style={NewStyles.text10}>مبلغ مورد نظر خود را به تومان وارد کنید.</Text>
                     <TextInput style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]} placeholderTextColor={themeColor10.bgColor(0.5)} keyboardType={Platform?.OS == 'ios' ? 'numbers-and-punctuation' : 'number-pad'} maxLength={15} placeholder='مبلغ به تومان' value={amount?.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ",")} onChangeText={(text) => { setAmount(text?.replace(/,/g, "")) }} />
@@ -102,7 +100,7 @@ export default function Decrease({ navigation }) {
                     contentContainerStyle={[styles.contentContainerStyle,]}
                     showsVerticalScrollIndicator={false}
                     scrollEnabled={false}
-                    
+
                     data={data}
                     keyExtractor={(item) => item?.id?.toString()}
                     ListHeaderComponent={data.length > 0 ? <Text style={NewStyles.title10}>درخواست‌های شما</Text> : null}

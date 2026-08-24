@@ -19,6 +19,7 @@ import VoteTimerDisplay from '../../components/VoteTimerDisplay';
 import { fetchTradingAllowed } from '../../slices/tradingAllowed';
 import Loader from '../../components/Loader';
 import SelectedComponent from '../../components/SelectedComponent';
+import BackHeader from '../../components/BackHeader';
 
 export default function DeliveryRequest({ navigation }) {
 
@@ -239,22 +240,16 @@ export default function DeliveryRequest({ navigation }) {
     }
 
     return (
-        <SafeAreaView edges={{ top: 'additive', bottom: 'additive' }} style={NewStyles.container}>
-            <View style={[NewStyles.row, { paddingTop: 15, width: '100%' }]}>
-                <View style={[{ flex: 1 }, NewStyles.center]}>
-                    <TouchableOpacity style={{ padding: 10 }} onPress={() => {
-                        navigation.navigate('DeliveryRequestHistory')
-                    }}>
-                        <Ionicons name={'list'} color={themeColor0.bgColor(1)} size={24} />
-                    </TouchableOpacity>
-                </View>
-                <View style={[NewStyles.center, { flex: 1 }]}>
-                    <Text style={NewStyles.title10}>تحویل فیزیکی طلا</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-
-                </View>
-            </View>
+        <SafeAreaView edges={{ top: 'off', bottom: 'additive' }} style={NewStyles.container}>
+            
+            <BackHeader
+                title={'تحویل فیزیکی طلا'}
+                rightIcon={true}
+                iconName={'list'}
+                rightIconPress={() => {
+                    navigation.navigate('DeliveryRequestHistory')
+                }}
+            />
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={'padding'}>
                 {
                     tradingData?.allowed ?
@@ -351,7 +346,7 @@ export default function DeliveryRequest({ navigation }) {
                                     {
                                         stores?.map(item => {
                                             return (
-                                                <TouchableOpacity key={item?.id} style={[NewStyles.border10, NewStyles.shadow, NewStyles.row, { backgroundColor: themeColor4.bgColor(1), padding: 10, alignItems: 'flex-start',   }]} onPress={() => {
+                                                <TouchableOpacity key={item?.id} style={[NewStyles.border10, NewStyles.shadow, NewStyles.row, { backgroundColor: themeColor4.bgColor(1), padding: 10, alignItems: 'flex-start', }]} onPress={() => {
                                                     setpickupStore(item?.id)
                                                 }}>
                                                     <SelectedComponent selected={pickupStore == item?.id} />

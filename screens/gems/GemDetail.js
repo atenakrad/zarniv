@@ -140,7 +140,7 @@ export default function GemDetail({ route, navigation }) {
                 />
                 {data?.varieties?.[activeVariety]?.stock == 0 &&
                     <View style={[NewStyles.border10, styles.unavailable]}>
-                        <Text style={NewStyles.text10}>{t('َUnavailable')}</Text>
+                        <Text style={NewStyles.text4}>{t('َUnavailable')}</Text>
                     </View>}
                 <View style={styles.wrapper}>
                     {/* <Text style={NewStyles.text10}>گالری {data?.seller?.shop_name} - {data?.brand?.name} - {data?.collection?.name}</Text> */}

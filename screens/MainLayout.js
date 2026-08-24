@@ -47,7 +47,7 @@ export default function MainLayout({ navigation }) {
           },
           headerLeft: () => {
             return (
-              <Text style={NewStyles.title}>فروشگاه</Text>
+              <Text style={NewStyles.title}> فروشگاه </Text>
             )
           }
 
@@ -63,7 +63,7 @@ export default function MainLayout({ navigation }) {
             },
             headerLeft: () => {
               return (
-                <Text style={NewStyles.title}>حساب کاربری</Text>
+                <Text style={NewStyles.title}> حساب کاربری </Text>
               )
             },
             headerStyle: { backgroundColor: themeColor1.bgColor(1), elevation:0 }
@@ -78,7 +78,7 @@ export default function MainLayout({ navigation }) {
             },
             headerLeft: () => {
               return (
-                <Text style={NewStyles.title}>قیمت لحظه‌ای</Text>
+                <Text style={NewStyles.title}> قیمت لحظه‌ای </Text>
               )
             }
           }}
@@ -92,7 +92,7 @@ export default function MainLayout({ navigation }) {
             },
             headerLeft: () => {
               return (
-                <Text style={NewStyles.title}>کیف‌پول</Text>
+                <Text style={NewStyles.title}> کیف‌پول </Text>
               )
             }
           }}
@@ -106,7 +106,7 @@ export default function MainLayout({ navigation }) {
             },
             headerLeft: () => {
               return (
-                <Text style={NewStyles.title}>سبد خرید</Text>
+                <Text style={NewStyles.title}> سبد خرید </Text>
               )
             }
           }}

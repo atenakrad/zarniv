@@ -23,7 +23,7 @@ export default function ProductItem({ item, navigation }) {
                 {image ? <Image style={styles.content} source={{ uri: `${mainUri}${image?.file_name}` }} /> : <ImageThumbnail height={200} />}
             </View>
             <View style={{ justifyContent: 'space-evenly', paddingHorizontal: 15, paddingVertical: 20 }}>
-                <Text style={NewStyles.title10} numberOfLines={1}>{item?.name}</Text>
+                <Text style={NewStyles.title10}  > {item?.name} </Text>
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
                     {discountedPrice < price ?
                         <View>

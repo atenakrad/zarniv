@@ -68,12 +68,10 @@ const GoldSilverChart = ({ route }) => {
     }
 
     return (
-        <SafeAreaView style={NewStyles.container}>
+        <SafeAreaView style={NewStyles.container} edges={{top:'off', bottom:'additive'}}>
 
             <View style={styles.contentContainerStyle}>
-                <View style={NewStyles.center}>
-                    <Text style={NewStyles.heading}> {params?.metal === 'gold' ? 'طلا' : 'نقره'}</Text>
-                </View>
+                
                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                 <View style={styles.chartContainer}>
 
@@ -190,7 +188,7 @@ export default GoldSilverChart
 
 const styles = StyleSheet.create({
     contentContainerStyle: {
-        paddingVertical: '5%',
+        paddingBottom: '5%',
         gap: 10,
     },
     chartContainer: {

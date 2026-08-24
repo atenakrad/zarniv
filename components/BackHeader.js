@@ -7,11 +7,21 @@ import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native'
 
-const BackHeader = ({ title }) => {
+const BackHeader = ({ title, rightIcon, iconName, rightIconPress }) => {
     const navigation = useNavigation()
     return (
         <SafeAreaView style={[{ paddingVertical: 10, backgroundColor: themeColor5.bgColor(1) }, NewStyles.rowWrapper]} edges={{ top: Platform.OS === 'ios' ? 'off' : 'additive', bottom: 'off' }}>
-            <Text style={[NewStyles.title, { paddingHorizontal: 20, paddingVertical: 10, flex:1 }]}>{title}</Text>
+            {
+                (rightIcon && iconName && rightIconPress) && <TouchableOpacity onPress={() => {
+                    if (rightIconPress) {
+
+                        rightIconPress()
+                    }
+                }} style={{ paddingHorizontal: 20, paddingVertical: 10 }}>
+                    <Ionicons name={iconName} size={20} color={themeColor0.bgColor(1)} />
+                </TouchableOpacity>
+            }
+            <Text style={[NewStyles.title, { paddingHorizontal: 20, paddingVertical: 10, flex: 1 }, (rightIcon && iconName && rightIconPress) && { textAlign: 'center' }]}> {title} </Text>
             <TouchableOpacity style={{ paddingHorizontal: 20, paddingVertical: 10 }} onPress={() => {
                 navigation.goBack()
             }}>

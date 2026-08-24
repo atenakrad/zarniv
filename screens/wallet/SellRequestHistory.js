@@ -38,7 +38,7 @@ export default function SellRequestHistory({ navigation }) {
     );
 
     return (
-        <SafeAreaView edges={{ top: 'additive', bottom: 'additive' }} style={NewStyles.container}>
+        <SafeAreaView edges={{ top: 'off', bottom: 'additive' }} style={NewStyles.container}>
             <ScrollView contentContainerStyle={styles.contentContainerStyle} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl
                 refreshing={refreshing}
                 onRefresh={() => {
@@ -46,9 +46,7 @@ export default function SellRequestHistory({ navigation }) {
                     fetchData()
                 }}
             />}>
-                <View style={NewStyles.center}>
-                    <Text style={NewStyles.heading10}>درخواست‌های فروش طلا</Text>
-                </View>
+                 
                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                 <FlatList
                     ListEmptyComponent={() => {
@@ -75,7 +73,7 @@ export default function SellRequestHistory({ navigation }) {
 const styles = StyleSheet.create({
     contentContainerStyle: {
         paddingHorizontal: 10,
-        paddingVertical: '5%',
+        paddingBottom: '5%',
         gap: 10,
     },
 });

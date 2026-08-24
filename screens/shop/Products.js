@@ -43,10 +43,15 @@ export default function Products({ route, navigation }) {
         fetchData();
     }, [refreshing]);
 
+    if(loading){
+        return(
+            <Loader/>
+        )
+    }
+
     return (
-        <SafeAreaView style={NewStyles.container}>
-            <CustomStatusBar />
-            {loading && <Loader />}
+        <SafeAreaView style={NewStyles.container} edges={{top:'off', bottom:'additive'}}>
+            <CustomStatusBar /> 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollViewContainer} refreshControl={<RefreshControl colors={[themeColor0.bgColor(1)]} refreshing={refreshing} onRefresh={() => { setRefreshing(true); }} />}>
                 <FlatList
                     contentContainerStyle={styles.flatListContainer}
@@ -79,7 +84,7 @@ export default function Products({ route, navigation }) {
 
 const styles = StyleSheet.create({
     scrollViewContainer: {
-        paddingTop: 20,
+        paddingBottom: 20,
         gap: 20
     },
     contentContainerStyle: {

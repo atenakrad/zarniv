@@ -20,7 +20,7 @@ export default function GemItem2({ item, navigation }) {
         <Pressable style={[styles.contentWrapper, NewStyles.row, NewStyles.shadow, NewStyles.border5]} onPress={() => navigation.navigate('Gem Detail', { gemId: item?.id })}>
             {image ? <Image style={styles.content} source={{ uri: `${mainUri}${image?.image}` }} contentFit='cover' /> : <View style={styles.content}><ImageThumbnail height={200} /></View>}
             <View style={{ justifyContent: 'space-evenly', paddingHorizontal: 15, paddingVertical: 20, flex: 1 }}>
-                <Text style={NewStyles.title10} numberOfLines={1}>{item?.name}</Text>
+                <Text style={NewStyles.title10} numberOfLines={2}> {item?.name} </Text>
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
                     {discountedPrice < price ?
                         <View>

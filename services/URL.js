@@ -9,6 +9,6 @@
 // export const imageUri = 'http://192.168.21.148:8080/media';
 
 // هاست
-export const mainUri = 'https://zarniv.khayyamtech.com';
-export const uri = 'https://zarniv.khayyamtech.com/api';
-export const imageUri = 'https://zarniv.khayyamtech.com/media';
+export const mainUri = 'https://zarniv.ir';
+export const uri = 'https://zarniv.ir/api';
+export const imageUri = 'https://zarniv.ir/media';
