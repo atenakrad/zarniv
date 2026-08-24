@@ -10,6 +10,7 @@ import { fetchUser } from "../../slices/userSlice";
 
 import { themeColor0, themeColor1, themeColor10, themeColor3, themeColor4, themeColor5 } from "../../theme/Color";
 import Button from "../../components/Button";
+import DatePickerModal from "../../components/DatePickerModal";
 import TransparentButton from "../../components/TransparentButton";
 import { setAccessToken, setRefreshToken } from "../../slices/tokenSlice";
 import { useTranslation } from "react-i18next";
@@ -18,7 +19,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import { formatTime, handleError, showToastOrAlert } from "../../helpers/Common";
 import { removeLastScreen, removeParams } from "../../slices/lastScreenSlice";
-import RegisterScreen from "./RegisterScreen";
 
 export default function LoginModal() {
   const { t } = useTranslation();
@@ -34,6 +34,12 @@ export default function LoginModal() {
   const lastScreen = useSelector(state => state.last)
   const [tab, setTab] = useState("login")
   const [timer, setTimer] = useState(120);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [nationalCode, setNationalCode] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [datePickerModal, setDatePickerModal] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
 
   const ref = useBlurOnFulfill({ value, cellCount: 6 });
   const [props, getCellOnLayoutHandler] = useClearByFocusCell({
@@ -46,6 +52,78 @@ export default function LoginModal() {
       return true;
     } else {
       return false;
+    }
+  };
+
+  const normalizeDigits = (input = "") =>
+    String(input)
+      .replace(/[۰-۹]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹".indexOf(digit))
+      .replace(/[٠-٩]/g, (digit) => "٠١٢٣٤٥٦٧٨٩".indexOf(digit));
+
+  const onlyDigits = (input = "") => normalizeDigits(input).replace(/\D/g, "");
+
+  const validateRegisterData = () => {
+    if (!firstName.trim()) return "نام را وارد کنید.";
+    if (!lastName.trim()) return "نام خانوادگی را وارد کنید.";
+    if (!/^09\d{9}$/.test(phone)) return "شماره موبایل وارد شده معتبر نیست.";
+    if (!/^\d{10}$/.test(nationalCode)) return "کد ملی باید ۱۰ رقم باشد.";
+
+    const birthMatch = birthDate.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+    if (!birthMatch) return "تاریخ تولد را به صورت 1370/01/01 وارد کنید.";
+
+    const month = Number(birthMatch[2]);
+    const day = Number(birthMatch[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      return "تاریخ تولد معتبر نیست.";
+    }
+
+    if (referralCode && !/^\d{6}$/.test(referralCode)) {
+      return "کد معرف باید ۶ رقم باشد.";
+    }
+
+    return "";
+  };
+
+  const registerUser = async () => {
+    const validationError = validateRegisterData();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await axios.post(`${uri}/register/`, {
+        phone_number: phone,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        national_code: nationalCode,
+        birth_date: birthDate,
+        referral_code: referralCode || "",
+      });
+
+      if (!(response?.data?.success || response?.data?.ok)) {
+        setError(response?.data?.message || "ثبت‌نام انجام نشد.");
+        return;
+      }
+
+      // کاربر در بک‌اند پس از کنترل اطلاعات هویتی و شاهکار ایجاد/تکمیل شده است.
+      // حالا OTP همان شماره ارسال می‌شود.
+      await sendVerificationCode();
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "خطا در ثبت‌نام. لطفاً دوباره تلاش کنید.";
+      setError(
+        typeof message === "string"
+          ? message
+          : Object.values(message || {}).flat().join(" ")
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -74,7 +152,12 @@ export default function LoginModal() {
         showToastOrAlert(response?.data?.message)
       }
     } catch (error) {
-      console.log(error);
+      console.log(error?.response?.data || error);
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        "خطا در ارسال کد تأیید.";
+      setError(typeof message === "string" ? message : "خطا در ارسال کد تأیید.");
     } finally {
       setLoading(false);
     }
@@ -180,7 +263,7 @@ export default function LoginModal() {
                   {!code ? (
                     <View style={styles.wrapper}>
                       <Text style={NewStyles.text10}>{t("Please enter your phone number. A verification code will be sent to your phone number.")}</Text>
-                      <TextInput style={[NewStyles.textInput, NewStyles.text1, NewStyles.border5, { textAlign: 'auto', backgroundColor: themeColor4.bgColor(0.4) }]} keyboardType="number-pad" placeholderTextColor={themeColor10.bgColor(0.5)} maxLength={11} placeholder={`${t("Phone Number")}`} value={phone} onChangeText={(text) => { setPhone(text); if (error) { setError('') } }} />
+                      <TextInput style={[NewStyles.textInput, NewStyles.text1, NewStyles.border5, { textAlign: 'auto', backgroundColor: themeColor4.bgColor(0.4) }]} keyboardType="number-pad" placeholderTextColor={themeColor10.bgColor(0.5)} maxLength={11} placeholder={`${t("Phone Number")}`} value={phone} onChangeText={(text) => { setPhone(onlyDigits(text).slice(0, 11)); if (error) { setError('') } }} />
                       <View style={[NewStyles.row, { flexWrap: 'wrap', flexDirection: 'row-reverse' }]}>
                         <Text style={NewStyles.text10}>ورود شما به معنای موافقت شما با </Text>
                         <Pressable onPress={() => { navigation.navigate('Terms') }}><Text style={NewStyles.text2}>قوانین و مقررات</Text></Pressable>
@@ -379,14 +462,138 @@ export default function LoginModal() {
                 </View>
                 :
                 <View style={[styles.modalView, NewStyles.border5]}>
-                  <Text style={NewStyles.title10}>{t("Login | Register")}</Text>
-                  <RegisterScreen phone={phone}
-                    setPhone={setPhone}
-                    error={error}
-                    onOk={sendVerificationCode}
-                    setError={setError} />
-                  <TouchableOpacity style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor1.bgColor(1), paddingVertical: 5, alignSelf: 'center', paddingHorizontal: 10 }} onPress={() => { setTab('login') }}>
-                    <Text style={[NewStyles.text1, { textAlign: 'center' }]}>قبلا ثبت نام کرده‌اید؟ وارد شوید</Text>
+                  <Text style={NewStyles.title10}>ثبت نام</Text>
+
+                  <View style={styles.wrapper}>
+                    <Text style={NewStyles.text10}>
+                      اطلاعات زیر را مطابق مدارک هویتی وارد کنید.
+                    </Text>
+
+                    <TextInput
+                      style={[NewStyles.textInput, NewStyles.text1, NewStyles.border5, styles.registerInput]}
+                      placeholder="نام *"
+                      placeholderTextColor={themeColor10.bgColor(0.5)}
+                      value={firstName}
+                      onChangeText={(text) => {
+                        setFirstName(text);
+                        if (error) setError("");
+                      }}
+                    />
+
+                    <TextInput
+                      style={[NewStyles.textInput, NewStyles.text1, NewStyles.border5, styles.registerInput]}
+                      placeholder="نام خانوادگی *"
+                      placeholderTextColor={themeColor10.bgColor(0.5)}
+                      value={lastName}
+                      onChangeText={(text) => {
+                        setLastName(text);
+                        if (error) setError("");
+                      }}
+                    />
+
+                    <TextInput
+                      style={[NewStyles.textInput, NewStyles.text1, NewStyles.border5, styles.registerInput]}
+                      keyboardType="number-pad"
+                      placeholder="شماره موبایل *"
+                      placeholderTextColor={themeColor10.bgColor(0.5)}
+                      maxLength={11}
+                      value={phone}
+                      onChangeText={(text) => {
+                        setPhone(onlyDigits(text).slice(0, 11));
+                        if (error) setError("");
+                      }}
+                    />
+
+                    <TextInput
+                      style={[NewStyles.textInput, NewStyles.text1, NewStyles.border5, styles.registerInput]}
+                      keyboardType="number-pad"
+                      placeholder="کد ملی ۱۰ رقمی *"
+                      placeholderTextColor={themeColor10.bgColor(0.5)}
+                      maxLength={10}
+                      value={nationalCode}
+                      onChangeText={(text) => {
+                        setNationalCode(onlyDigits(text).slice(0, 10));
+                        if (error) setError("");
+                      }}
+                    />
+
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={[
+                        NewStyles.textInput,
+                        NewStyles.border5,
+                        styles.registerInput,
+                        styles.datePickerField,
+                      ]}
+                      onPress={() => {
+                        if (error) setError("");
+                        setDatePickerModal(true);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          NewStyles.text1,
+                          !birthDate && { color: themeColor10.bgColor(0.5) },
+                        ]}
+                      >
+                        {birthDate || "تاریخ تولد *"}
+                      </Text>
+                      <Text style={styles.datePickerIcon}>📅</Text>
+                    </TouchableOpacity>
+
+                    <TextInput
+                      style={[NewStyles.textInput, NewStyles.text1, NewStyles.border5, styles.registerInput]}
+                      keyboardType="number-pad"
+                      placeholder="کد معرف (اختیاری)"
+                      placeholderTextColor={themeColor10.bgColor(0.5)}
+                      maxLength={6}
+                      value={referralCode}
+                      onChangeText={(text) => {
+                        setReferralCode(onlyDigits(text).slice(0, 6));
+                        if (error) setError("");
+                      }}
+                    />
+
+                    <View style={[NewStyles.row, { flexWrap: "wrap", flexDirection: "row-reverse" }]}>
+                      <Text style={NewStyles.text10}>ثبت نام شما به معنای موافقت با </Text>
+                      <Pressable onPress={() => navigation.navigate("Terms")}>
+                        <Text style={NewStyles.text2}>قوانین و مقررات</Text>
+                      </Pressable>
+                      <Text style={NewStyles.text10}> و </Text>
+                      <Pressable onPress={() => navigation.navigate("Privacy")}>
+                        <Text style={NewStyles.text2}>سیاست حفظ حریم خصوصی</Text>
+                      </Pressable>
+                      <Text style={NewStyles.text10}> است.</Text>
+                    </View>
+
+                    {error && <Text style={NewStyles.text6}>{error}</Text>}
+
+                    <Button
+                      title="ثبت اطلاعات و ارسال کد"
+                      loading={loading}
+                      onPress={registerUser}
+                      style={{ marginVertical: 0 }}
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={{
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: themeColor1.bgColor(1),
+                      paddingVertical: 5,
+                      alignSelf: "center",
+                      paddingHorizontal: 10,
+                    }}
+                    onPress={() => {
+                      setError("");
+                      setCode(false);
+                      setLoginWithPassword(false);
+                      setTab("login");
+                    }}
+                  >
+                    <Text style={[NewStyles.text1, { textAlign: "center" }]}>
+                      قبلاً ثبت نام کرده‌اید؟ وارد شوید
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
@@ -394,6 +601,17 @@ export default function LoginModal() {
           </ScrollView>
 
         </KeyboardAvoidingView>
+
+        <DatePickerModal
+          datePickerModal={datePickerModal}
+          setDatePickerModal={setDatePickerModal}
+          birthDate={birthDate}
+          setBirthDate={(date) => {
+            setBirthDate(date);
+            setError("");
+          }}
+          isCurrentDate={birthDate || undefined}
+        />
       </LinearGradient>
     </ImageBackground>
   );
@@ -420,6 +638,18 @@ const styles = StyleSheet.create({
     gap: 10,
     // flex: 1,
     // justifyContent: 'space-between'
+  },
+  registerInput: {
+    textAlign: "auto",
+    backgroundColor: themeColor4.bgColor(0.4),
+  },
+  datePickerField: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  datePickerIcon: {
+    fontSize: 18,
   },
   cell: {
     width: 40,
