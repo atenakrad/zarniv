@@ -1,4 +1,4 @@
-import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import * as Linking from 'expo-linking';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -54,7 +54,36 @@ export default function Purchase({ navigation }) {
 
     const parseMoney = (str) => {
         if (!str) return 0;
-        return Number(String(str).replace(/[^0-9]/g, ""));
+        return Number(
+            String(str)
+                .replace(/,/g, "")
+                .replace("٫", ".")
+        );
+    };
+
+    const sanitizeMoneyInput = (text) => {
+        const normalized = String(text ?? "")
+            .replace(/,/g, "")
+            .replace(/٫/g, ".")
+            .replace(/[^0-9.]/g, "");
+
+        const dotIndex = normalized.indexOf(".");
+        const hasDecimalPoint = dotIndex !== -1;
+
+        const integerRaw = (hasDecimalPoint ? normalized.slice(0, dotIndex) : normalized)
+            .replace(/\./g, "");
+        const integerPart = integerRaw || "0";
+
+        if (!hasDecimalPoint) {
+            return formatNumber(integerPart);
+        }
+
+        const decimalPart = normalized
+            .slice(dotIndex + 1)
+            .replace(/\./g, "")
+            .slice(0, 3);
+
+        return `${formatNumber(integerPart)}.${decimalPart}`;
     };
 
     const parseWeight = (str) => {
@@ -159,8 +188,8 @@ export default function Purchase({ navigation }) {
         editingField.current = "price";
         setInputMode("price");
 
-        const cleaned = text.replace(/[^0-9]/g, "");
-        const formatted = formatNumber(cleaned);
+        const formatted = sanitizeMoneyInput(text);
+        const numericPrice = parseMoney(formatted);
 
         setPrice(formatted);
 
@@ -168,7 +197,7 @@ export default function Purchase({ navigation }) {
             clearTimeout(priceTimeoutRef.current);
         }
 
-        if (!cleaned) {
+        if (!formatted || !Number.isFinite(numericPrice) || numericPrice <= 0) {
             setWeight("");
             setPriceWord("");
             return;
@@ -177,8 +206,6 @@ export default function Purchase({ navigation }) {
         priceTimeoutRef.current = setTimeout(async () => {
 
             if (editingField.current !== "price") return;
-
-            const numericPrice = parseInt(cleaned, 10);
 
             const result = await calculateWeightFromPrice(numericPrice);
 
@@ -206,6 +233,30 @@ export default function Purchase({ navigation }) {
             }
         };
     }, []);
+
+
+    const useAllCashBalance = async () => {
+        const walletBalance = Number(user?.wallet?.balance || 0);
+
+        if (!Number.isFinite(walletBalance) || walletBalance <= 0) {
+            showToastOrAlert("موجودی کیف پول شما صفر است");
+            return;
+        }
+
+        if (priceTimeoutRef.current) clearTimeout(priceTimeoutRef.current);
+        if (weightTimeoutRef.current) clearTimeout(weightTimeoutRef.current);
+
+        editingField.current = "price";
+        setInputMode("price");
+
+        const formattedBalance = sanitizeMoneyInput(String(walletBalance));
+        setPrice(formattedBalance);
+        setPriceWord("");
+
+        const result = await calculateWeightFromPrice(walletBalance);
+        setWeight(result.weight);
+        setPrice(result.price);
+    };
 
 
     const purchase = async () => {
@@ -287,12 +338,23 @@ export default function Purchase({ navigation }) {
                             <TextInput
                                 style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
                                 placeholderTextColor={themeColor10.bgColor(0.5)}
-                                keyboardType={'number-pad'}
-                                placeholder='مقدار بر حسب تومان'
+                                keyboardType={'decimal-pad'}
+                                placeholder='مبلغ به تومان (تا ۳ رقم اعشار)'
                                 value={price}
                                 onChangeText={handlePriceChange}
                                 onBlur={handlePriceBlur}
                             />
+                            <TouchableOpacity
+                                onPress={useAllCashBalance}
+                                style={{
+                                    alignSelf: 'flex-start',
+                                    paddingVertical: 5,
+                                    paddingHorizontal: 2,
+                                }}>
+                                <Text style={[NewStyles.text1, { fontSize: 13 }]}>
+                                    استفاده از کل موجودی کیف پول
+                                </Text>
+                            </TouchableOpacity>
                             {priceWord?.trim() && <Text style={[NewStyles.text1,{fontSize:13}]}>{priceWord}</Text>}
 
                             <View style={[NewStyles.rowWrapper, { gap: 10 }]}>

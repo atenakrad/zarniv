@@ -186,7 +186,7 @@ export default function App() {
                       headerShown: true,
                       header: () => {
                         return (
-                          <BackHeader title={'احراز اطلاعات بانکی'} />
+                          <BackHeader title={'حساب‌های بانکی من'} />
                         )
                       }
                     }}
@@ -203,7 +203,7 @@ export default function App() {
                     headerShown: true,
                     header: () => {
                       return (
-                        <BackHeader title={'احراز اطلاعات بانکی'} />
+                        <BackHeader title={'شارژ کیف پول'} />
                       )
                     }
                   }} />

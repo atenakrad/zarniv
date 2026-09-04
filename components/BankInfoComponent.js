@@ -11,7 +11,12 @@ const BankInfoComponent = () => {
         dispatch(fetchSiteBankAccount())
     }, [])
     const siteBank = useSelector(state => state.siteBank?.data) 
-
+    console.log('====================================');
+    console.log(siteBank);
+    console.log('====================================');
+    if(!siteBank){
+        return null
+    }
     return (
         <View style={[{backgroundColor: themeColor12.bgColor(1), padding: 10, gap: 10, }, NewStyles.border10]}>
              <Text style={NewStyles.title10}>{siteBank?.title}</Text>

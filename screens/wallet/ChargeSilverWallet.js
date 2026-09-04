@@ -1,4 +1,4 @@
-import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import * as Linking from 'expo-linking';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -260,6 +260,31 @@ export default function ChargeSilverWallet({ navigation }) {
         };
     }, [handleDeepLink]);
 
+    const useAllCashBalance = async () => {
+        const walletBalance = Number(user?.wallet?.balance || 0);
+
+        if (!Number.isFinite(walletBalance) || walletBalance <= 0) {
+            showToastOrAlert("موجودی کیف پول شما صفر است");
+            return;
+        }
+
+        if (priceTimeoutRef.current) clearTimeout(priceTimeoutRef.current);
+        if (weightTimeoutRef.current) clearTimeout(weightTimeoutRef.current);
+
+        editingField.current = "price";
+        setInputMode("price");
+
+        const formattedBalance = sanitizeMoneyInput(String(walletBalance));
+        setPrice(formattedBalance);
+        setPriceWord("");
+
+        const result = await calculateWeightFromPrice(walletBalance);
+        setWeight(result.weight);
+        setPrice(result.price);
+        setPriceWord(result.priceWords || "");
+    };
+
+
     const purchase = async () => {
         const cleanWeight = parseWeight(weight);
         const cleanPrice = parseMoney(price);
@@ -341,6 +366,17 @@ export default function ChargeSilverWallet({ navigation }) {
                             onChangeText={handlePriceChange}
                             onBlur={handlePriceBlur}
                         />
+                        <TouchableOpacity
+                            onPress={useAllCashBalance}
+                            style={{
+                                    alignSelf: 'flex-start',
+                                    paddingVertical: 5,
+                                    paddingHorizontal: 2,
+                                }}>
+                            <Text style={[NewStyles.text1, { fontSize: 13 }]}>
+                                استفاده از کل موجودی کیف پول
+                            </Text>
+                        </TouchableOpacity>
                         {priceWord?.trim() && (
                             <Text style={[NewStyles.text1, { fontSize: 13 }]}>
                                 {priceWord}

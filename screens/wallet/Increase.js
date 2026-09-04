@@ -1,107 +1,199 @@
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import * as Linking from "expo-linking";
+import * as Linking from 'expo-linking';
+import axios from 'axios';
 
 import NewStyles from '../../styles/NewStyles';
-import { themeColor0, themeColor10, themeColor12, themeColor3 } from '../../theme/Color';
+import { themeColor10, themeColor12, themeColor3 } from '../../theme/Color';
 import Button from '../../components/Button';
+import TransparentButton from '../../components/TransparentButton';
+import BankInfoComponent from '../../components/BankInfoComponent';
+import RecieptFormComponent from '../../components/RecieptFormComponent';
+import BankAccountSelector from '../../components/BankAccountSelector';
 import { uri } from '../../services/URL';
 import { handleError, showToastOrAlert } from '../../helpers/Common';
 import { fetchUser } from '../../slices/userSlice';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import TransparentButton from '../../components/TransparentButton';
 import { fetchTradingAllowed } from '../../slices/tradingAllowed';
-import BankInfoComponent from '../../components/BankInfoComponent';
-import RecieptFormComponent from '../../components/RecieptFormComponent';
-export default function Increase({ navigation }) {
 
+export default function Increase({ navigation }) {
     const dispatch = useDispatch();
     const { t } = useTranslation();
     const accessToken = useSelector((state) => state?.token?.accessToken);
-    const trading = useSelector((state) => state?.trading)
-    const tradingData = trading?.data
+    const tradingData = useSelector((state) => state?.trading?.data);
 
-    const user = useSelector((state) => state.user?.data);
-    const [loading, setLoading] = useState(false)
-    const [amount, setAmount] = useState(null)
+    const [loading, setLoading] = useState(false);
+    const [loadingAccounts, setLoadingAccounts] = useState(false);
+    const [amount, setAmount] = useState('');
+    const [userAccounts, setUserAccounts] = useState([]);
+    const [siteAccounts, setSiteAccounts] = useState([]);
+    const [selectedBankAccountId, setSelectedBankAccountId] = useState(null);
 
+    const fetchBankAccounts = async () => {
+        if (!accessToken) return;
+        setLoadingAccounts(true);
+        try {
+            const response = await axios.get(`${uri}/bank-accounts/`, {
+                headers: {
+                    Accept: 'application/json',
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
+
+            const verified = response?.data?.verified_user_accounts || [];
+            const sites = response?.data?.site_accounts || [];
+            setUserAccounts(verified);
+            setSiteAccounts(sites);
+
+            const selectedStillExists = verified.some(
+                (item) => String(item?.id) === String(selectedBankAccountId)
+            );
+            if (!selectedStillExists) {
+                const defaultAccount = verified.find((item) => item?.is_default) || verified[0];
+                setSelectedBankAccountId(defaultAccount?.id || null);
+            }
+        } catch (error) {
+            handleError(error, t);
+        } finally {
+            setLoadingAccounts(false);
+        }
+    };
 
     useEffect(() => {
-        const subscription = Linking.addEventListener("url", ({ url }) => {
+        const subscription = Linking.addEventListener('url', ({ url }) => {
             const { queryParams } = Linking.parse(url);
-            console.log(queryParams);
 
-            if (queryParams?.Status == 'OK' && queryParams?.type == 'wallet') {
+            if (queryParams?.Status === 'OK' && queryParams?.type === 'wallet') {
                 dispatch(fetchUser(accessToken));
                 showToastOrAlert('کیف پول شما با موفقیت شارژ شد.');
-                setLoading(false);
-            } else if (queryParams?.Status == 'NOK' && queryParams?.type == 'wallet') {
+                setAmount('');
+            } else if (queryParams?.Status === 'NOK' && queryParams?.type === 'wallet') {
                 showToastOrAlert('پرداخت با خطا مواجه شد.');
-                setLoading(false);
             }
+            setLoading(false);
         });
-        return () => subscription.remove();
-    }, []);
 
-    const redirectUrl = Linking.createURL("/?");
+        return () => subscription.remove();
+    }, [accessToken]);
+
+    useEffect(() => {
+        dispatch(fetchTradingAllowed());
+        fetchBankAccounts();
+    }, [accessToken]);
+
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', fetchBankAccounts);
+        return unsubscribe;
+    }, [navigation, accessToken, selectedBankAccountId]);
+
+    const redirectUrl = Linking.createURL('/?');
 
     const increaseWallet = async () => {
+        const numericAmount = Number(String(amount || '').replace(/,/g, ''));
 
-        if (amount > tradingData?.gateway_payment_limit) {
+        if (!selectedBankAccountId) {
+            showToastOrAlert('لطفاً حساب بانکی مبدأ را انتخاب کنید.');
+            return;
+        }
+
+        if (!Number.isFinite(numericAmount) || numericAmount < 10000) {
+            showToastOrAlert('حداقل مبلغ برای شارژ کیف پول ۱۰,۰۰۰ تومان است.');
+            return;
+        }
+
+        if (tradingData?.gateway_payment_limit && numericAmount > Number(tradingData.gateway_payment_limit)) {
             showToastOrAlert('عبور از سقف تراکنش');
             return;
         }
 
         setLoading(true);
         try {
-            await Linking.openURL(`${uri}/increaseWallet?linkingUri=${redirectUrl}&amount=${amount}&userId=${user?.id}`);
+            const response = await axios.post(
+                `${uri}/increaseWallet/`,
+                {
+                    amount: numericAmount,
+                    bank_account_id: selectedBankAccountId,
+                    linkingUri: redirectUrl,
+                },
+                {
+                    headers: {
+                        Accept: 'application/json',
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                }
+            );
+
+            const paymentUrl = response?.data?.payment_url;
+            if (!paymentUrl) {
+                throw new Error('payment_url missing');
+            }
+            // ابتدا لینک عمومی و امضاشده API در مرورگر باز می‌شود؛
+            // بک‌اند از همان درخواست مرورگر session لازم برای SEP را ساخته و سپس redirect می‌کند.
+             
+            await Linking.openURL(paymentUrl);
         } catch (error) {
+            handleError(error, t);
             setLoading(false);
-        } finally {
-            setLoading(false);
+        }finally{
+            setLoading(false)
         }
     };
-
-
-
-    useEffect(() => {
-        dispatch(fetchTradingAllowed())
-    }, [])
 
     return (
         <SafeAreaView style={NewStyles.container} edges={{ top: 'off', bottom: 'additive' }}>
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={'padding'}>
-
                 <ScrollView contentContainerStyle={styles.contentContainerStyle}>
-
                     <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
-                    <Text style={NewStyles.text10}>مبلغ مورد نظر خود را به تومان وارد کنید.</Text>
-                    <TextInput style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]} placeholderTextColor={themeColor10.bgColor(0.5)} keyboardType={Platform?.OS == 'ios' ? 'numbers-and-punctuation' : 'number-pad'} placeholder='مبلغ به تومان' value={amount?.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ",")} onChangeText={(text) => { setAmount(text?.replace(/,/g, "")) }} />
-                    <Button title={'پرداخت'}
-                        loading={loading}
-                        onPress={() => {
-                            if (amount >= 10000) {
-                                increaseWallet()
-                            } else {
-                                const message = 'حداقل مبلغ برای شارژ کیف پول ۱۰.۰۰۰ تومان می باشد.'
-                                showToastOrAlert(message)
-                            }
-                        }}
+
+                    <Text style={NewStyles.title10}>شارژ کیف پول از درگاه</Text>
+                    <Text style={NewStyles.text10}>
+                        حساب بانکی مبدأ را انتخاب کنید. اطلاعات همین حساب داخل تراکنش ذخیره می‌شود.
+                    </Text>
+
+                    <BankAccountSelector
+                        title={'حساب بانکی مبدأ'}
+                        accounts={userAccounts}
+                        selectedId={selectedBankAccountId}
+                        onSelect={setSelectedBankAccountId}
+                        emptyText={'هنوز حساب بانکی احرازشده‌ای ندارید.'}
                     />
 
-                    <BankInfoComponent />
+                    <TransparentButton
+                        title={'مدیریت / افزودن حساب بانکی'}
+                        onPress={() => navigation.navigate('EditCard')}
+                    />
+
+                    <Text style={NewStyles.text10}>مبلغ مورد نظر خود را به تومان وارد کنید.</Text>
+                    <TextInput
+                        style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
+                        placeholderTextColor={themeColor10.bgColor(0.5)}
+                        keyboardType={Platform?.OS === 'ios' ? 'numbers-and-punctuation' : 'number-pad'}
+                        placeholder='مبلغ به تومان'
+                        value={amount?.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                        onChangeText={(text) => setAmount(text?.replace(/,/g, '').replace(/[^0-9]/g, ''))}
+                    />
+                    <Button
+                        title={'پرداخت'}
+                        loading={loading || loadingAccounts}
+                        onPress={increaseWallet}
+                    />
+
+                    <View style={{ height: 6 }} />
+                    <BankInfoComponent siteAccounts={siteAccounts} />
+
                     <RecieptFormComponent
                         title={'شارژ دستی کیف پول'}
                         request_type={'wallet'}
+                        userBankAccounts={userAccounts}
+                        siteBankAccounts={siteAccounts}
+                        onSuccess={fetchBankAccounts}
                     />
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
-    )
+    );
 }
 
 const styles = StyleSheet.create({

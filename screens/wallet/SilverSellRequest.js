@@ -1,4 +1,4 @@
-import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import * as Linking from 'expo-linking';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -269,6 +269,41 @@ export default function SilverSellRequest({ navigation }) {
         };
     }, [handleDeepLink]);
 
+    const useAllMetalBalance = async () => {
+        const walletBalance = Number(user?.wallet?.silver_balance || 0);
+
+        if (!Number.isFinite(walletBalance) || walletBalance < 0.001) {
+            showToastOrAlert("موجودی نقره شما برای فروش کافی نیست");
+            return;
+        }
+
+        if (priceTimeoutRef.current) clearTimeout(priceTimeoutRef.current);
+        if (weightTimeoutRef.current) clearTimeout(weightTimeoutRef.current);
+
+        // هرگز بیشتر از موجودی واقعی نفرست؛ حداکثر ۳ رقم اعشار.
+        const tradableBalance = Math.floor((walletBalance + Number.EPSILON) * 1000) / 1000;
+
+        if (tradableBalance < 0.001) {
+            showToastOrAlert("حداقل مقدار قابل فروش 0.001 گرم است");
+            return;
+        }
+
+        editingField.current = "weight";
+
+        const weightText = tradableBalance
+            .toFixed(3)
+            .replace(/\.0+$/, "")
+            .replace(/(\.\d*?)0+$/, "$1");
+
+        setWeight(weightText);
+        setPriceWord("");
+
+        const result = await calculatePriceFromWeight(tradableBalance);
+        setPrice(result.price);
+        setPriceWord(result.priceWords || "");
+    };
+
+
     const submirRequest = async () => {
         const cleanWeight = parseWeight(weight);
 
@@ -345,6 +380,17 @@ export default function SilverSellRequest({ navigation }) {
                             maxLength={8}
                             onChangeText={handleWeightChange}
                         />
+                        <TouchableOpacity
+                            onPress={useAllMetalBalance}
+                            style={{
+                                    alignSelf: 'flex-start',
+                                    paddingVertical: 5,
+                                    paddingHorizontal: 2,
+                                }}>
+                            <Text style={[NewStyles.text1, { fontSize: 13 }]}>
+                                فروش کل موجودی نقره
+                            </Text>
+                        </TouchableOpacity>
 
                         <TextInput
                             style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}

@@ -47,6 +47,7 @@ export default function DeliveryRequest({ navigation }) {
 
     const [weight, setWeight] = useState("");
     const [price, setPrice] = useState("");
+    const [priceWord, setPriceWord] = useState("");
     const [name, setName] = useState("");
     const [way, setWay] = useState('pickup');
     const [pickupStore, setpickupStore] = useState('');
@@ -59,115 +60,176 @@ export default function DeliveryRequest({ navigation }) {
         return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     };
 
-    const parseNumber = (str) => {
+    const parseMoney = (str) => {
         if (!str) return 0;
-        return Number(str.replace(/,/g, "").replace(/[^0-9]/g, ""));
+        return Number(
+            String(str)
+                .replace(/,/g, "")
+                .replace("٫", ".")
+        );
+    };
+
+    const sanitizeMoneyInput = (text) => {
+        const normalized = String(text ?? "")
+            .replace(/,/g, "")
+            .replace(/٫/g, ".")
+            .replace(/[^0-9.]/g, "");
+
+        const dotIndex = normalized.indexOf(".");
+        const hasDecimalPoint = dotIndex !== -1;
+
+        const integerRaw = (hasDecimalPoint ? normalized.slice(0, dotIndex) : normalized)
+            .replace(/\./g, "");
+        const integerPart = integerRaw || "0";
+
+        if (!hasDecimalPoint) {
+            return formatNumber(integerPart);
+        }
+
+        const decimalPart = normalized
+            .slice(dotIndex + 1)
+            .replace(/\./g, "")
+            .slice(0, 3);
+
+        return `${formatNumber(integerPart)}.${decimalPart}`;
+    };
+
+    const parseWeight = (str) => {
+        if (!str) return 0;
+        return Number(String(str).replace(",", "."));
+    };
+
+    const sanitizeWeightInput = (text) => {
+        const normalized = String(text ?? "")
+            .replace(/,/g, ".")
+            .replace(/[^0-9.]/g, "");
+
+        const dotIndex = normalized.indexOf(".");
+        if (dotIndex === -1) {
+            return normalized;
+        }
+
+        const integerPart = normalized.slice(0, dotIndex).replace(/\./g, "") || "0";
+        const decimalPart = normalized
+            .slice(dotIndex + 1)
+            .replace(/\./g, "")
+            .slice(0, 3);
+
+        return `${integerPart}.${decimalPart}`;
     };
 
     const calculatePriceFromWeight = async (numericWeight) => {
-        if (!numericWeight || !silverPrice) return "";
+        if (!numericWeight || !silverPrice) return { price: "", priceWords: "" };
+
         const payload = {
             mode: 'price',
             weight: numericWeight,
             way: 'delivery'
+        };
 
-        }
         try {
-            const response = await dispatch(fetchSilverInfoPrice({ params: payload }))
-            return formatNumber(Math.round(response?.payload?.price));
+            const response = await dispatch(fetchSilverInfoPrice({ params: payload }));
+            const payloadData = response?.payload;
+
+            if (!payloadData || payloadData?.error) {
+                throw new Error(payloadData?.message || 'invalid response');
+            }
+
+            return {
+                price: formatNumber(Math.round(Number(payloadData.price))),
+                priceWords: payloadData?.price_words || "",
+            };
         } catch (error) {
             showToastOrAlert('خطا در محاسبه قیمت نقره')
-            return '0';
+            return { price: "", priceWords: "" };
         }
-
-
     };
 
     const calculateWeightFromPrice = async (numericPrice) => {
-        if (!numericPrice || !silverPrice) return { weight: "", price: "" };
-        const silverPricePerMg = Number(silverPrice) / 1000;
-        if (silverPricePerMg === 0) return { weight: "", price: "" };
+        if (!numericPrice || !silverPrice) return { weight: "", price: "", priceWords: "" };
 
         const payload = {
             mode: 'weight',
             price: numericPrice,
             way: 'delivery'
+        };
 
-        }
         try {
-            const response = await dispatch(fetchSilverInfoPrice({ params: payload }))
-            const price =
-                response.payload.weight *
-                (response.payload.silver_price_per_mg);
+            const response = await dispatch(fetchSilverInfoPrice({ params: payload }));
+            const payloadData = response?.payload;
+
+            if (!payloadData || payloadData?.error) {
+                throw new Error(payloadData?.message || 'invalid response');
+            }
 
             return {
-                weight: response.payload.weight.toString(),
-                price: formatNumber(Math.round(price)),
+                weight: String(payloadData.weight),
+                price: formatNumber(Math.round(Number(payloadData.price))),
+                priceWords: payloadData?.price_words || "",
             };
-
         } catch (error) {
             showToastOrAlert('خطا در محاسبه قیمت نقره')
-            return { weight: "", price: "" };
+            return { weight: "", price: "", priceWords: "" };
         }
-
     };
 
     const handleWeightChange = (text) => {
         editingField.current = "weight";
 
-        const onlyNumbers = text.replace(/[^0-9]/g, "");
-        setWeight(onlyNumbers);
+        const sanitized = sanitizeWeightInput(text);
+        setWeight(sanitized);
+        setPriceWord("");
 
         if (weightTimeoutRef.current) {
             clearTimeout(weightTimeoutRef.current);
         }
 
-        if (!onlyNumbers) {
+        if (!sanitized) {
             setPrice("");
             return;
         }
 
         weightTimeoutRef.current = setTimeout(async () => {
-
             if (editingField.current !== "weight") return;
 
-            const numericWeight = parseInt(onlyNumbers, 10);
+            const numericWeight = parseWeight(sanitized);
+            if (!Number.isFinite(numericWeight) || numericWeight <= 0) {
+                setPrice("");
+                setPriceWord("");
+                return;
+            }
 
-            const calculatedPrice = await calculatePriceFromWeight(numericWeight);
-
-            setPrice(calculatedPrice);
-
+            const result = await calculatePriceFromWeight(numericWeight);
+            setPrice(result.price);
+            setPriceWord(result.priceWords);
         }, 1000);
     };
 
     const handlePriceChange = (text) => {
         editingField.current = "price";
 
-        const cleaned = text.replace(/[^0-9]/g, "");
-        const formatted = formatNumber(cleaned);
+        const formatted = sanitizeMoneyInput(text);
+        const numericPrice = parseMoney(formatted);
 
         setPrice(formatted);
+        setPriceWord("");
 
         if (priceTimeoutRef.current) {
             clearTimeout(priceTimeoutRef.current);
         }
 
-        if (!cleaned) {
+        if (!formatted || !Number.isFinite(numericPrice) || numericPrice <= 0) {
             setWeight("");
             return;
         }
 
         priceTimeoutRef.current = setTimeout(async () => {
-
             if (editingField.current !== "price") return;
 
-            const numericPrice = parseInt(cleaned, 10);
-
             const result = await calculateWeightFromPrice(numericPrice);
-
             setWeight(result.weight);
             setPrice(result.price);
-
+            setPriceWord(result.priceWords);
         }, 1000);
     };
 
@@ -191,24 +253,49 @@ export default function DeliveryRequest({ navigation }) {
     }, []);
 
     const request = async () => {
-        if (!weight || parseInt(weight, 10) < 1) {
-            showToastOrAlert("لطفاً مقدار معتبری برای درخواست وارد کنید");
+        const cleanWeight = parseWeight(weight);
+        const currentBalance = Number(user?.wallet?.silver_balance || 0);
+
+        if (!Number.isFinite(cleanWeight) || cleanWeight < 5) {
+            showToastOrAlert("حداقل مقدار درخواست تحویل 5 گرم است");
             return;
         }
+
+        if (Number.isFinite(currentBalance) && cleanWeight > currentBalance) {
+            showToastOrAlert("مقدار واردشده بیشتر از موجودی نقره شما است");
+            return;
+        }
+
         setLoading(true);
         try {
-            const response = await axios.post(`${uri}/silver/delivery/request/`, { weight, receiver_name: name, pickup_store_id: pickupStore, delivery_method: way, shipping_address: shippingAddress, shipping_postal_code: postCode }, { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } })
+            const response = await axios.post(
+                `${uri}/silver/delivery/request/`,
+                {
+                    weight: cleanWeight,
+                    receiver_name: name,
+                    pickup_store_id: pickupStore,
+                    delivery_method: way,
+                    shipping_address: shippingAddress,
+                    shipping_postal_code: postCode
+                },
+                {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                }
+            );
 
             dispatch(fetchUser(accessToken));
             showToastOrAlert(response?.data?.message);
             setWeight("");
             setPrice("");
+            setPriceWord("");
             setName("");
-            setShippingAddress("")
-            setPostCode("")
-            setWay("pickup")
-            setpickupStore("")
-
+            setShippingAddress("");
+            setPostCode("");
+            setWay("pickup");
+            setpickupStore("");
         } catch (error) {
             handleError(error, t)
         } finally {
@@ -216,6 +303,7 @@ export default function DeliveryRequest({ navigation }) {
             setLoading(false);
         }
     }
+
 
     const fetchPickUpStore = () => {
         axios.get(`${uri}/pick-up-store/`)
@@ -259,18 +347,18 @@ export default function DeliveryRequest({ navigation }) {
                             <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                             <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
                                 <View style={NewStyles.rowWrapper}>
-                                    <Text style={NewStyles.text10}>نرخ هر میلی گرم نقره</Text>
-                                    <Text style={NewStyles.text10}>{formatPrice((Number(silverPrice) / 1000)?.toFixed())} تومان</Text>
+                                    <Text style={NewStyles.text10}>نرخ هر گرم نقره</Text>
+                                    <Text style={NewStyles.text10}>{formatPrice(Number(silverPrice)?.toFixed())} تومان</Text>
                                 </View>
                                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                                 <View style={NewStyles.rowWrapper}>
                                     <Text style={NewStyles.text10}>دارایی نقره</Text>
-                                    <Text style={NewStyles.text10}>{formatPrice(user?.wallet?.silver_balance * 1000) || '0'} میلی گرم</Text>
+                                    <Text style={NewStyles.text10}>{formatPrice(user?.wallet?.silver_balance) || '0'} گرم</Text>
                                 </View>
                                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                                 <View style={NewStyles.rowWrapper}>
                                     <Text style={NewStyles.text10}>حداقل درخواست</Text>
-                                    <Text style={NewStyles.text10}>5,000 میلی گرم</Text>
+                                    <Text style={NewStyles.text10}>5 گرم</Text>
                                 </View>
                             </View>
                             {(!user?.is_national_birth_verified || !user?.is_phone_national_verified) &&
@@ -291,32 +379,37 @@ export default function DeliveryRequest({ navigation }) {
                                         <Ionicons name="alert-circle-outline" size={24} color={themeColor10.bgColor(1)} />
                                         <Text style={[NewStyles.text10, { flex: 1 }]}>برای ثبت درخواست فروش باید ابتدا حساب بانکی خود را احراز کنید.</Text>
                                     </View>
-                                    <Button title={'تکمیل انقرهعات حساب'}
+                                    <Button title={'تکمیل اطلاعات حساب'}
                                         onPress={() => {
                                             navigation.navigate('EditCard')
                                         }}
                                     />
                                 </View>}
-                            <Text style={[NewStyles.text10]}>مقدار بر حسب میلی گرم</Text>
+                            <Text style={[NewStyles.text10]}>مقدار بر حسب گرم</Text>
                             <TextInput
                                 style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
                                 placeholderTextColor={themeColor10.bgColor(0.5)}
-                                keyboardType={'number-pad'}
-                                placeholder='مقدار بر حسب میلی گرم'
+                                keyboardType={'decimal-pad'}
+                                placeholder='مقدار بر حسب گرم (تا ۳ رقم اعشار)'
                                 value={weight}
-                                maxLength={5}
+                                maxLength={10}
                                 onChangeText={handleWeightChange}
                             />
                             <Text style={[NewStyles.text10]}>مقدار بر حسب تومان</Text>
                             <TextInput
                                 style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
                                 placeholderTextColor={themeColor10.bgColor(0.5)}
-                                keyboardType={'number-pad'}
-                                placeholder='مقدار بر حسب تومان'
+                                keyboardType={'decimal-pad'}
+                                placeholder='مبلغ به تومان (تا ۳ رقم اعشار)'
                                 value={price}
                                 onChangeText={handlePriceChange}
                                 onBlur={handlePriceBlur}
                             />
+                            {priceWord?.trim() && (
+                                <Text style={[NewStyles.text1, { fontSize: 13 }]}>
+                                    {priceWord}
+                                </Text>
+                            )}
                             <Text style={[NewStyles.text10]}>نام تحویل گیرنده</Text>
                             <TextInput
                                 style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
