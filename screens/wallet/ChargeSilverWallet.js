@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import NewStyles from '../../styles/NewStyles';
 import { themeColor0, themeColor1, themeColor10, themeColor12, themeColor3, themeColor4, themeColor5 } from '../../theme/Color';
 import Button from '../../components/Button';
+import TradeLimitNotice from '../../components/TradeLimitNotice';
 import { formatPrice, handleError, showToastOrAlert } from '../../helpers/Common';
 import { uri } from '../../services/URL';
 import { fetchUser } from '../../slices/userSlice';
@@ -18,6 +19,7 @@ import Loader from './../../components/Loader';
 import { fetchSilverInfoPrice } from '../../slices/silverInfoSlice';
 import VoteTimerDisplay from '../../components/VoteTimerDisplay';
 import { fetchTradingAllowed } from '../../slices/tradingAllowed';
+import { getBuyBalanceLimitError, getMaximumTradeAmount, getTradeLimits, getTradeWeightError, hasReachedBuyBalanceLimit, TRADE_CALCULATION_DEBOUNCE_MS } from '../../helpers/tradeLimits';
 
 export default function ChargeSilverWallet({ navigation }) {
 
@@ -26,16 +28,20 @@ export default function ChargeSilverWallet({ navigation }) {
     const accessToken = useSelector((state) => state?.token?.accessToken);
     const silverInfo = useSelector(state => state.silverInfo?.data);
     const silverInfoLoading = useSelector(state => state.silverInfo?.loading);
-    const goldPrice = silverInfo?.silver_price_per_gram;
-    const editingField = useRef(null);
     const trading = useSelector((state) => state?.trading)
     const tradingData = trading?.data
+    const goldPrice = silverInfo?.silver_price_per_gram;
+    const tradeLimits = getTradeLimits(tradingData, 'buy', 'silver', silverInfo);
+    const editingField = useRef(null);
+    const calculationRequestRef = useRef(0);
     useEffect(() => {
         dispatch(fetchSilverInfoPrice({ params: null }))
         dispatch(fetchTradingAllowed())
     }, []);
 
     const user = useSelector((state) => state.user?.data);
+    const currentMetalBalance = Number(user?.wallet?.silver_balance || 0);
+    const isBalanceAtBuyLimit = hasReachedBuyBalanceLimit(currentMetalBalance, tradeLimits);
     const [loading, setLoading] = useState(false)
     const [refreshing, setRefreshing] = useState(false);
 
@@ -104,31 +110,38 @@ export default function ChargeSilverWallet({ navigation }) {
         return `${integerPart}.${decimalPart}`;
     };
 
+    const currentWeight = weight ? parseWeight(weight) : null;
+    const tradeWeightError = (weight
+        ? getTradeWeightError(currentWeight, tradeLimits, 'خرید نقره')
+        : "") || getBuyBalanceLimitError(currentWeight, currentMetalBalance, tradeLimits, 'نقره');
+
     const calculatePriceFromWeight = async (numericWeight) => {
-        if (!numericWeight || !goldPrice) return "";
+        if (!numericWeight || !goldPrice) return { price: "", priceWords: "" };
+
         const payload = {
             mode: 'price',
             weight: numericWeight,
             way: 'buy'
+        };
 
-        }
         try {
-            const response = await dispatch(fetchSilverInfoPrice({ params: payload }))
+            const response = await dispatch(fetchSilverInfoPrice({ params: payload }));
             const payloadData = response?.payload;
 
             if (!payloadData || payloadData?.error) {
                 throw new Error(payloadData?.message || 'invalid response');
             }
 
-            setPriceWord(payloadData?.price_words || "");
-            return formatNumber(Math.round(Number(payloadData?.price)));
+            return {
+                price: formatNumber(Math.round(Number(payloadData.price))),
+                priceWords: payloadData?.price_words || "",
+            };
         } catch (error) {
-            showToastOrAlert('خطا در محاسبه قیمت نقره‌')
-            return '0';
+            showToastOrAlert('خطا در محاسبه قیمت نقره‌');
+            return { price: "", priceWords: "" };
         }
-
-
     };
+
 
     const calculateWeightFromPrice = async (numericPrice) => {
         if (!numericPrice || !goldPrice) return { weight: "", price: "", priceWords: "" };
@@ -162,6 +175,7 @@ export default function ChargeSilverWallet({ navigation }) {
     const handleWeightChange = (text) => {
         editingField.current = "weight";
         setInputMode("weight");
+        const requestId = ++calculationRequestRef.current;
 
         const onlyNumbers = sanitizeWeightInput(text);
         setWeight(onlyNumbers);
@@ -176,22 +190,29 @@ export default function ChargeSilverWallet({ navigation }) {
             return;
         }
 
+        const numericWeight = parseWeight(onlyNumbers);
+        const localWeightError = getTradeWeightError(numericWeight, tradeLimits, 'خرید نقره')
+            || getBuyBalanceLimitError(numericWeight, currentMetalBalance, tradeLimits, 'نقره');
+        if (localWeightError) {
+            setPrice("");
+            return;
+        }
+
         weightTimeoutRef.current = setTimeout(async () => {
+            if (editingField.current !== "weight" || requestId !== calculationRequestRef.current) return;
 
-            if (editingField.current !== "weight") return;
+            const result = await calculatePriceFromWeight(numericWeight);
+            if (requestId !== calculationRequestRef.current) return;
 
-            const numericWeight = parseWeight(onlyNumbers);
-
-            const calculatedPrice = await calculatePriceFromWeight(numericWeight);
-
-            setPrice(calculatedPrice);
-
-        }, 1000);
+            setPrice(result.price);
+            setPriceWord(result.priceWords || "");
+        }, TRADE_CALCULATION_DEBOUNCE_MS);
     };
 
     const handlePriceChange = (text) => {
         editingField.current = "price";
         setInputMode("price");
+        const requestId = ++calculationRequestRef.current;
 
         const formatted = sanitizeMoneyInput(text);
         const numericPrice = parseMoney(formatted);
@@ -208,17 +229,21 @@ export default function ChargeSilverWallet({ navigation }) {
             return;
         }
 
-        priceTimeoutRef.current = setTimeout(async () => {
+        if (isBalanceAtBuyLimit) {
+            setWeight("");
+            return;
+        }
 
-            if (editingField.current !== "price") return;
+        priceTimeoutRef.current = setTimeout(async () => {
+            if (editingField.current !== "price" || requestId !== calculationRequestRef.current) return;
 
             const result = await calculateWeightFromPrice(numericPrice);
+            if (requestId !== calculationRequestRef.current) return;
 
             setWeight(result.weight);
             setPrice(result.price);
             setPriceWord(result.priceWords || "");
-
-        }, 1000);
+        }, TRADE_CALCULATION_DEBOUNCE_MS);
     };
 
     const handlePriceBlur = () => {
@@ -227,6 +252,7 @@ export default function ChargeSilverWallet({ navigation }) {
         }
 
         editingField.current = null;
+        calculationRequestRef.current += 1;
     };
 
     useEffect(() => {
@@ -273,12 +299,22 @@ export default function ChargeSilverWallet({ navigation }) {
 
         editingField.current = "price";
         setInputMode("price");
+        const requestId = ++calculationRequestRef.current;
 
-        const formattedBalance = sanitizeMoneyInput(String(walletBalance));
+        const balanceCapError = getBuyBalanceLimitError(null, currentMetalBalance, tradeLimits, 'نقره');
+        if (balanceCapError) {
+            showToastOrAlert(balanceCapError);
+            return;
+        }
+
+        const maxTradeAmount = getMaximumTradeAmount(tradeLimits, silverInfo?.silver_buy_price_per_gram, currentMetalBalance);
+        const usableBalance = maxTradeAmount !== null ? Math.min(walletBalance, maxTradeAmount) : walletBalance;
+        const formattedBalance = sanitizeMoneyInput(String(usableBalance));
         setPrice(formattedBalance);
         setPriceWord("");
 
-        const result = await calculateWeightFromPrice(walletBalance);
+        const result = await calculateWeightFromPrice(usableBalance);
+        if (requestId !== calculationRequestRef.current) return;
         setWeight(result.weight);
         setPrice(result.price);
         setPriceWord(result.priceWords || "");
@@ -289,8 +325,10 @@ export default function ChargeSilverWallet({ navigation }) {
         const cleanWeight = parseWeight(weight);
         const cleanPrice = parseMoney(price);
 
-        if (!Number.isFinite(cleanWeight) || cleanWeight < 0.001) {
-            showToastOrAlert("حداقل مقدار خرید 0.001 گرم است");
+        const tradeError = getTradeWeightError(cleanWeight, tradeLimits, 'خرید نقره')
+            || getBuyBalanceLimitError(cleanWeight, currentMetalBalance, tradeLimits, 'نقره');
+        if (tradeError) {
+            showToastOrAlert(tradeError);
             return;
         }
 
@@ -326,7 +364,7 @@ export default function ChargeSilverWallet({ navigation }) {
             {
                 tradingData?.allowed ? <KeyboardAvoidingView style={{ flex: 1 }} behavior={'padding'}>
 
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainerStyle} refreshControl={<RefreshControl colors={[themeColor1.bgColor(1)]} refreshing={refreshing} onRefresh={() => { dispatch(fetchRate(accessToken)); dispatch(fetchUser(accessToken)); }} />}>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainerStyle} refreshControl={<RefreshControl colors={[themeColor1.bgColor(1)]} refreshing={refreshing} onRefresh={() => { dispatch(fetchRate(accessToken)); dispatch(fetchUser(accessToken)); dispatch(fetchSilverInfoPrice({ params: null })); dispatch(fetchTradingAllowed()); }} />}>
                          
                         <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
 
@@ -353,8 +391,15 @@ export default function ChargeSilverWallet({ navigation }) {
                             keyboardType={'decimal-pad'}
                             placeholder='مقدار بر حسب گرم (تا ۳ رقم اعشار)'
                             value={weight}
-                            maxLength={8}
+                            maxLength={13}
                             onChangeText={handleWeightChange}
+                        />
+
+                        <TradeLimitNotice
+                            limits={tradeLimits}
+                            operationLabel="خرید نقره"
+                            error={tradeWeightError}
+                            currentBalance={currentMetalBalance}
                         />
 
                         <TextInput
@@ -388,6 +433,7 @@ export default function ChargeSilverWallet({ navigation }) {
                                 <Button
                                     title={'خرید'}
                                     loading={loading}
+                                    disabled={Boolean(tradeWeightError)}
                                     onPress={purchase}
                                 />
                             </View>

@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import NewStyles from '../../styles/NewStyles';
 import { themeColor0, themeColor1, themeColor10, themeColor12, themeColor3, themeColor4, themeColor5, themeColor6 } from '../../theme/Color';
 import Button from '../../components/Button';
+import TradeLimitNotice from '../../components/TradeLimitNotice';
 import { formatPrice, handleError, showToastOrAlert } from '../../helpers/Common';
 import { uri } from '../../services/URL';
 import { fetchUser } from '../../slices/userSlice';
@@ -19,6 +20,7 @@ import { fetchInfoPrice } from '../../slices/goldInfoSlice';
 import Loader from './../../components/Loader';
 import VoteTimerDisplay from '../../components/VoteTimerDisplay';
 import { fetchTradingAllowed } from '../../slices/tradingAllowed';
+import { getMetalBalanceLimitError, getTradeLimits, getTradeWeightError, TRADE_CALCULATION_DEBOUNCE_MS } from '../../helpers/tradeLimits';
 
 export default function GoldConvert({ navigation }) {
 
@@ -30,7 +32,10 @@ export default function GoldConvert({ navigation }) {
   const trading = useSelector((state) => state?.trading)
   const tradingData = trading?.data
   const goldPrice = goldInfo?.gold_price_per_gram;
+  const tradeLimits = getTradeLimits(tradingData, 'convert', 'gold', goldInfo);
+  const targetBalanceLimits = getTradeLimits(tradingData, 'buy', 'silver');
   const editingField = useRef(null);
+  const calculationRequestRef = useRef(0);
 
   useEffect(() => {
     dispatch(fetchInfoPrice({ params: null }))
@@ -44,6 +49,7 @@ export default function GoldConvert({ navigation }) {
   const [weight, setWeight] = useState("")
   const [price, setPrice] = useState("")
   const [silverGram, setSilverGram] = useState("")
+  const targetBalanceError = getMetalBalanceLimitError(silverGram || null, user?.wallet?.silver_balance, targetBalanceLimits, 'نقره', 'این تبدیل');
 
   const weightTimeoutRef = useRef(null);
   const priceTimeoutRef = useRef(null);
@@ -80,12 +86,16 @@ export default function GoldConvert({ navigation }) {
     return `${integerPart}.${decimalPart}`;
   };
 
+  const tradeWeightError = weight
+    ? getTradeWeightError(parseWeight(weight), tradeLimits, 'تبدیل طلا')
+    : "";
+
   const calculatePriceFromWeight = async (numericWeight) => {
     if (!numericWeight) return "";
     const payload = {
       mode: 'price',
       weight: numericWeight,
-      way: 'sell'
+      way: 'convert'
 
     }
     try {
@@ -106,13 +116,12 @@ export default function GoldConvert({ navigation }) {
 
   const handleWeightChange = (text) => {
     editingField.current = "weight";
+    const requestId = ++calculationRequestRef.current;
 
     const onlyNumbers = sanitizeWeightInput(text);
     setWeight(onlyNumbers);
 
-    if (weightTimeoutRef.current) {
-      clearTimeout(weightTimeoutRef.current);
-    }
+    if (weightTimeoutRef.current) clearTimeout(weightTimeoutRef.current);
 
     if (!onlyNumbers) {
       setPrice("");
@@ -120,18 +129,28 @@ export default function GoldConvert({ navigation }) {
       return;
     }
 
+    const numericWeight = parseWeight(onlyNumbers);
+    if (getTradeWeightError(numericWeight, tradeLimits, 'تبدیل طلا')) {
+      setPrice("");
+      setSilverGram("");
+      return;
+    }
+
+    if (getMetalBalanceLimitError(null, user?.wallet?.silver_balance, targetBalanceLimits, 'نقره', 'این تبدیل')) {
+      setPrice("");
+      setSilverGram("");
+      return;
+    }
+
     weightTimeoutRef.current = setTimeout(async () => {
+      if (editingField.current !== "weight" || requestId !== calculationRequestRef.current) return;
 
-      if (editingField.current !== "weight") return;
+      const result = await calculatePriceFromWeight(numericWeight);
+      if (requestId !== calculationRequestRef.current || !result || typeof result !== 'object') return;
 
-      const numericWeight = parseWeight(onlyNumbers);
-
-      const { calculatedPrice, final_silver_gram } = await calculatePriceFromWeight(numericWeight);
-
-      setPrice(calculatedPrice);
-      setSilverGram(final_silver_gram);
-
-    }, 1000);
+      setPrice(result.calculatedPrice);
+      setSilverGram(result.final_silver_gram);
+    }, TRADE_CALCULATION_DEBOUNCE_MS);
   };
 
 
@@ -151,8 +170,10 @@ export default function GoldConvert({ navigation }) {
     const cleanWeight = parseWeight(weight);
     const cleanPrice = parseMoney(price);
 
-    if (!Number.isFinite(cleanWeight) || cleanWeight < 0.001) {
-      showToastOrAlert("حداقل مقدار تبدیل 0.001 گرم است");
+    const tradeError = getTradeWeightError(cleanWeight, tradeLimits, 'تبدیل طلا');
+    const targetError = getMetalBalanceLimitError(silverGram || null, user?.wallet?.silver_balance, targetBalanceLimits, 'نقره', 'این تبدیل');
+    if (tradeError || targetError) {
+      showToastOrAlert(tradeError || targetError);
       return;
     }
 
@@ -163,13 +184,8 @@ export default function GoldConvert({ navigation }) {
 
     setLoading(true);
     const payload = {
-      mode: 'price',
-      weight: cleanWeight,
-      way: 'sell',
+      // تنها ورودی قابل اعتماد برای تبدیل: وزن طلا بر حسب گرم
       gold: cleanWeight,
-      silver: silverGram,
-      price: cleanPrice,
-
     }
     try {
       const response = await axios.post(`${uri}/gold-to-sliver/`, payload, { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } });
@@ -229,8 +245,14 @@ export default function GoldConvert({ navigation }) {
                 keyboardType={'decimal-pad'}
                 placeholder='مقدار بر حسب گرم'
                 value={weight}
-                maxLength={10}
+                maxLength={13}
                 onChangeText={handleWeightChange}
+              />
+
+              <TradeLimitNotice
+                limits={tradeLimits}
+                operationLabel="تبدیل طلا"
+                error={tradeWeightError || targetBalanceError}
               />
 
 
@@ -239,6 +261,7 @@ export default function GoldConvert({ navigation }) {
               <Button
                 title={'تبدیل به نقره'}
                 loading={loading}
+                disabled={Boolean(tradeWeightError || targetBalanceError)}
                 onPress={purchase}
               />
 

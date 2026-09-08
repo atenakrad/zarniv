@@ -24,7 +24,17 @@ const silverInfoSlice = createSlice({
         });
         builder.addCase(fetchSilverInfoPrice.fulfilled, (state, action) => {
             state.loading = false;
-            state.data = action.payload;
+
+            if (action.payload) {
+                // محاسبه‌های لحظه‌ای پاسخ کوچک‌تری دارند؛ محدودیت‌های دریافتی از
+                // درخواست اولیه را نگه می‌داریم تا با هر تایپ از Redux حذف نشوند.
+                state.data = {
+                    ...(state.data || {}),
+                    ...action.payload,
+                    trade_limits: action.payload?.trade_limits ?? state.data?.trade_limits,
+                };
+            }
+
             state.error = "";
         });
         builder.addCase(fetchSilverInfoPrice.rejected, (state, action) => {

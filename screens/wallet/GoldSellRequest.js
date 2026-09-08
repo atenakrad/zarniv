@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import NewStyles from '../../styles/NewStyles';
 import { themeColor0, themeColor1, themeColor10, themeColor12, themeColor3, themeColor4, themeColor5 } from '../../theme/Color';
 import Button from '../../components/Button';
+import TradeLimitNotice from '../../components/TradeLimitNotice';
 import { formatPrice, handleError, showToastOrAlert } from '../../helpers/Common';
 import { uri } from '../../services/URL';
 import { fetchUser } from '../../slices/userSlice';
@@ -20,6 +21,7 @@ import Loader from './../../components/Loader';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchTradingAllowed } from '../../slices/tradingAllowed';
 import VoteTimerDisplay from '../../components/VoteTimerDisplay';
+import { getTradableBalance, getTradeLimits, getTradeWeightError, TRADE_CALCULATION_DEBOUNCE_MS } from '../../helpers/tradeLimits';
 
 export default function GoldSellRequest({ navigation }) {
 
@@ -28,10 +30,12 @@ export default function GoldSellRequest({ navigation }) {
     const accessToken = useSelector((state) => state?.token?.accessToken);
     const goldInfo = useSelector(state => state.goldInfo?.data);
     const goldInfoLoading = useSelector(state => state.goldInfo?.loading);
-    const goldPrice = goldInfo?.gold_price_per_gram;
-    const editingField = useRef(null);
     const trading = useSelector((state) => state?.trading)
     const tradingData = trading?.data
+    const goldPrice = goldInfo?.gold_price_per_gram;
+    const tradeLimits = getTradeLimits(tradingData, 'sell', 'gold', goldInfo);
+    const editingField = useRef(null);
+    const calculationRequestRef = useRef(0);
     
     useEffect(() => {
         dispatch(fetchInfoPrice({ params: null }))
@@ -112,6 +116,10 @@ export default function GoldSellRequest({ navigation }) {
         return `${integerPart}.${decimalPart}`;
     };
 
+    const tradeWeightError = weight
+        ? getTradeWeightError(parseWeight(weight), tradeLimits, 'فروش طلا')
+        : "";
+
     const calculatePriceFromWeight = async (numericWeight) => {
         if (!numericWeight || !goldPrice) return { price: "", priceWords: "" };
 
@@ -172,38 +180,39 @@ export default function GoldSellRequest({ navigation }) {
 
     const handleWeightChange = (text) => {
         editingField.current = "weight";
+        const requestId = ++calculationRequestRef.current;
 
         const sanitized = sanitizeWeightInput(text);
         setWeight(sanitized);
         setPriceWord("");
 
-        if (weightTimeoutRef.current) {
-            clearTimeout(weightTimeoutRef.current);
-        }
+        if (weightTimeoutRef.current) clearTimeout(weightTimeoutRef.current);
 
         if (!sanitized) {
             setPrice("");
             return;
         }
 
-        weightTimeoutRef.current = setTimeout(async () => {
-            if (editingField.current !== "weight") return;
+        const numericWeight = parseWeight(sanitized);
+        if (getTradeWeightError(numericWeight, tradeLimits, 'فروش طلا')) {
+            setPrice("");
+            return;
+        }
 
-            const numericWeight = parseWeight(sanitized);
-            if (!Number.isFinite(numericWeight) || numericWeight < 0.001) {
-                setPrice("");
-                setPriceWord("");
-                return;
-            }
+        weightTimeoutRef.current = setTimeout(async () => {
+            if (editingField.current !== "weight" || requestId !== calculationRequestRef.current) return;
 
             const result = await calculatePriceFromWeight(numericWeight);
+            if (requestId !== calculationRequestRef.current) return;
+
             setPrice(result.price);
             setPriceWord(result.priceWords);
-        }, 1000);
+        }, TRADE_CALCULATION_DEBOUNCE_MS);
     };
 
     const handlePriceChange = (text) => {
         editingField.current = "price";
+        const requestId = ++calculationRequestRef.current;
 
         const formatted = sanitizeMoneyInput(text);
         const numericPrice = parseMoney(formatted);
@@ -211,9 +220,7 @@ export default function GoldSellRequest({ navigation }) {
         setPrice(formatted);
         setPriceWord("");
 
-        if (priceTimeoutRef.current) {
-            clearTimeout(priceTimeoutRef.current);
-        }
+        if (priceTimeoutRef.current) clearTimeout(priceTimeoutRef.current);
 
         if (!formatted || !Number.isFinite(numericPrice) || numericPrice <= 0) {
             setWeight("");
@@ -221,14 +228,15 @@ export default function GoldSellRequest({ navigation }) {
         }
 
         priceTimeoutRef.current = setTimeout(async () => {
-            if (editingField.current !== "price") return;
+            if (editingField.current !== "price" || requestId !== calculationRequestRef.current) return;
 
             const result = await calculateWeightFromPrice(numericPrice);
+            if (requestId !== calculationRequestRef.current) return;
 
             setWeight(result.weight);
             setPrice(result.price);
             setPriceWord(result.priceWords);
-        }, 1000);
+        }, TRADE_CALCULATION_DEBOUNCE_MS);
     };
 
     const handlePriceBlur = () => {
@@ -237,6 +245,7 @@ export default function GoldSellRequest({ navigation }) {
         }
 
         editingField.current = null;
+        calculationRequestRef.current += 1;
     };
 
     useEffect(() => {
@@ -273,7 +282,7 @@ export default function GoldSellRequest({ navigation }) {
     const useAllMetalBalance = async () => {
         const walletBalance = Number(user?.wallet?.gold_balance || 0);
 
-        if (!Number.isFinite(walletBalance) || walletBalance < 0.001) {
+        if (!Number.isFinite(walletBalance) || walletBalance < tradeLimits.min) {
             showToastOrAlert("موجودی طلا شما برای فروش کافی نیست");
             return;
         }
@@ -281,15 +290,16 @@ export default function GoldSellRequest({ navigation }) {
         if (priceTimeoutRef.current) clearTimeout(priceTimeoutRef.current);
         if (weightTimeoutRef.current) clearTimeout(weightTimeoutRef.current);
 
-        // هرگز بیشتر از موجودی واقعی نفرست؛ حداکثر ۳ رقم اعشار.
-        const tradableBalance = Math.floor((walletBalance + Number.EPSILON) * 1000) / 1000;
-
-        if (tradableBalance < 0.001) {
-            showToastOrAlert("حداقل مقدار قابل فروش 0.001 گرم است");
+        // هم موجودی واقعی و هم سقف پویا از بک‌اند رعایت می‌شوند.
+        const tradableBalance = getTradableBalance(walletBalance, tradeLimits);
+        const tradeError = getTradeWeightError(tradableBalance, tradeLimits, 'فروش طلا');
+        if (tradeError) {
+            showToastOrAlert(tradeError);
             return;
         }
 
         editingField.current = "weight";
+        const requestId = ++calculationRequestRef.current;
 
         const weightText = tradableBalance
             .toFixed(3)
@@ -300,6 +310,7 @@ export default function GoldSellRequest({ navigation }) {
         setPriceWord("");
 
         const result = await calculatePriceFromWeight(tradableBalance);
+        if (requestId !== calculationRequestRef.current) return;
         setPrice(result.price);
         setPriceWord(result.priceWords || "");
     };
@@ -308,13 +319,9 @@ export default function GoldSellRequest({ navigation }) {
     const submirRequest = async () => {
         const cleanWeight = parseWeight(weight);
 
-        if (!Number.isFinite(cleanWeight) || cleanWeight < 0.001) {
-            showToastOrAlert("حداقل مقدار قابل فروش 0.001 گرم است");
-            return;
-        }
-
-        if (cleanWeight > 50) {
-            showToastOrAlert("حداکثر مقدار قابل فروش 50 گرم است");
+        const tradeError = getTradeWeightError(cleanWeight, tradeLimits, 'فروش طلا');
+        if (tradeError) {
+            showToastOrAlert(tradeError);
             return;
         }
 
@@ -352,7 +359,7 @@ export default function GoldSellRequest({ navigation }) {
 
                 {
                     tradingData?.allowed ?
-                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainerStyle} refreshControl={<RefreshControl colors={[themeColor1.bgColor(1)]} refreshing={refreshing} onRefresh={() => { dispatch(fetchRate(accessToken)); dispatch(fetchUser(accessToken)); }} />}>
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainerStyle} refreshControl={<RefreshControl colors={[themeColor1.bgColor(1)]} refreshing={refreshing} onRefresh={() => { dispatch(fetchRate(accessToken)); dispatch(fetchUser(accessToken)); dispatch(fetchInfoPrice({ params: null })); dispatch(fetchTradingAllowed()); }} />}>
                           
                             <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
 
@@ -379,8 +386,13 @@ export default function GoldSellRequest({ navigation }) {
                                 keyboardType={'decimal-pad'}
                                 placeholder='مقدار بر حسب گرم (تا ۳ رقم اعشار)'
                                 value={weight}
-                                maxLength={8}
+                                maxLength={13}
                                 onChangeText={handleWeightChange}
+                            />
+                            <TradeLimitNotice
+                                limits={tradeLimits}
+                                operationLabel="فروش طلا"
+                                error={tradeWeightError}
                             />
                             <TouchableOpacity
                                 onPress={useAllMetalBalance}

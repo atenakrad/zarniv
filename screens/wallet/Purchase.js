@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import NewStyles from '../../styles/NewStyles';
 import { themeColor0, themeColor1, themeColor10, themeColor12, themeColor3, themeColor4, themeColor5 } from '../../theme/Color';
 import Button from '../../components/Button';
+import TradeLimitNotice from '../../components/TradeLimitNotice';
 import { formatPrice, handleError, showToastOrAlert } from '../../helpers/Common';
 import { uri } from '../../services/URL';
 import { fetchUser } from '../../slices/userSlice';
@@ -19,6 +20,7 @@ import { fetchInfoPrice } from '../../slices/goldInfoSlice';
 import Loader from './../../components/Loader';
 import VoteTimerDisplay from '../../components/VoteTimerDisplay';
 import { fetchTradingAllowed } from '../../slices/tradingAllowed';
+import { getBuyBalanceLimitError, getMaximumTradeAmount, getTradeLimits, getTradeWeightError, hasReachedBuyBalanceLimit, TRADE_CALCULATION_DEBOUNCE_MS } from '../../helpers/tradeLimits';
 
 export default function Purchase({ navigation }) {
 
@@ -29,13 +31,17 @@ export default function Purchase({ navigation }) {
     const trading = useSelector((state) => state?.trading)
     const tradingData = trading?.data
     const goldPrice = goldInfo?.gold_price_per_gram;
-    const editingField = useRef(null); 
+    const tradeLimits = getTradeLimits(tradingData, 'buy', 'gold', goldInfo);
+    const editingField = useRef(null);
+    const calculationRequestRef = useRef(0);
     useEffect(() => {
         dispatch(fetchInfoPrice({ params: null }))
         dispatch(fetchTradingAllowed())
     }, []);
 
     const user = useSelector((state) => state.user?.data);
+    const currentMetalBalance = Number(user?.wallet?.gold_balance || 0);
+    const isBalanceAtBuyLimit = hasReachedBuyBalanceLimit(currentMetalBalance, tradeLimits);
     const [loading, setLoading] = useState(false)
     const [refreshing, setRefreshing] = useState(false);
 
@@ -104,28 +110,41 @@ export default function Purchase({ navigation }) {
         return `${integerPart}.${decimalPart}`;
     };
 
+    const currentWeight = weight ? parseWeight(weight) : null;
+    const tradeWeightError = (weight
+        ? getTradeWeightError(currentWeight, tradeLimits, 'خرید طلا')
+        : "") || getBuyBalanceLimitError(currentWeight, currentMetalBalance, tradeLimits, 'طلا');
+
     const calculatePriceFromWeight = async (numericWeight) => {
-        if (!numericWeight || !goldPrice) return "";
+        if (!numericWeight || !goldPrice) return { price: "", priceWords: "" };
+
         const payload = {
             mode: 'price',
             weight: numericWeight,
             way: 'buy'
+        };
 
-        }
         try {
-            const response = await dispatch(fetchInfoPrice({ params: payload })) 
-            setPriceWord(response?.payload?.price_words)
-            return formatNumber(Math.round(response?.payload?.price));
+            const response = await dispatch(fetchInfoPrice({ params: payload }));
+            const payloadData = response?.payload;
+
+            if (!payloadData || payloadData?.error) {
+                throw new Error(payloadData?.message || 'invalid response');
+            }
+
+            return {
+                price: formatNumber(Math.round(Number(payloadData.price))),
+                priceWords: payloadData?.price_words || "",
+            };
         } catch (error) {
-            showToastOrAlert('خطا در محاسبه قیمت طلا')
-            return '0';
+            showToastOrAlert('خطا در محاسبه قیمت طلا');
+            return { price: "", priceWords: "" };
         }
-
-
     };
 
+
     const calculateWeightFromPrice = async (numericPrice) => {
-        if (!numericPrice || !goldPrice) return { weight: "", price: "" };
+        if (!numericPrice || !goldPrice) return { weight: "", price: "", priceWords: "" };
 
         const payload = {
             mode: 'weight',
@@ -141,25 +160,27 @@ export default function Purchase({ navigation }) {
                 throw new Error(payloadData?.message || 'invalid response');
             }
 
-            setPriceWord(payloadData?.price_words || "");
-
             return {
                 weight: String(payloadData.weight),
                 // بک‌اند وزن را تا 3 رقم اعشار نهایی کرده و قیمت واقعی همان وزن را برمی‌گرداند.
                 price: formatNumber(Math.round(Number(payloadData.price))),
+                priceWords: payloadData?.price_words || "",
             };
         } catch (error) {
-            showToastOrAlert('خطا در محاسبه قیمت طلا')
-            return { weight: "", price: "" };
+            showToastOrAlert('خطا در محاسبه قیمت طلا');
+            return { weight: "", price: "", priceWords: "" };
         }
     };
+
 
     const handleWeightChange = (text) => {
         editingField.current = "weight";
         setInputMode("weight");
+        const requestId = ++calculationRequestRef.current;
 
         const onlyNumbers = sanitizeWeightInput(text);
         setWeight(onlyNumbers);
+        setPriceWord("");
 
         if (weightTimeoutRef.current) {
             clearTimeout(weightTimeoutRef.current);
@@ -167,31 +188,38 @@ export default function Purchase({ navigation }) {
 
         if (!onlyNumbers) {
             setPrice("");
-            setPriceWord("")
+            return;
+        }
+
+        const numericWeight = parseWeight(onlyNumbers);
+        const localWeightError = getTradeWeightError(numericWeight, tradeLimits, 'خرید طلا')
+            || getBuyBalanceLimitError(numericWeight, currentMetalBalance, tradeLimits, 'طلا');
+        if (localWeightError) {
+            setPrice("");
             return;
         }
 
         weightTimeoutRef.current = setTimeout(async () => {
+            if (editingField.current !== "weight" || requestId !== calculationRequestRef.current) return;
 
-            if (editingField.current !== "weight") return;
+            const result = await calculatePriceFromWeight(numericWeight);
 
-            const numericWeight = parseWeight(onlyNumbers);
-
-            const calculatedPrice = await calculatePriceFromWeight(numericWeight);
-
-            setPrice(calculatedPrice);
-
-        }, 1000);
+            if (requestId !== calculationRequestRef.current) return;
+            setPrice(result.price);
+            setPriceWord(result.priceWords || "");
+        }, TRADE_CALCULATION_DEBOUNCE_MS);
     };
 
     const handlePriceChange = (text) => {
         editingField.current = "price";
         setInputMode("price");
+        const requestId = ++calculationRequestRef.current;
 
         const formatted = sanitizeMoneyInput(text);
         const numericPrice = parseMoney(formatted);
 
         setPrice(formatted);
+        setPriceWord("");
 
         if (priceTimeoutRef.current) {
             clearTimeout(priceTimeoutRef.current);
@@ -199,20 +227,24 @@ export default function Purchase({ navigation }) {
 
         if (!formatted || !Number.isFinite(numericPrice) || numericPrice <= 0) {
             setWeight("");
-            setPriceWord("");
+            return;
+        }
+
+        if (isBalanceAtBuyLimit) {
+            setWeight("");
             return;
         }
 
         priceTimeoutRef.current = setTimeout(async () => {
-
-            if (editingField.current !== "price") return;
+            if (editingField.current !== "price" || requestId !== calculationRequestRef.current) return;
 
             const result = await calculateWeightFromPrice(numericPrice);
 
+            if (requestId !== calculationRequestRef.current) return;
             setWeight(result.weight);
             setPrice(result.price);
-
-        }, 1000);
+            setPriceWord(result.priceWords || "");
+        }, TRADE_CALCULATION_DEBOUNCE_MS);
     };
 
     const handlePriceBlur = () => {
@@ -221,6 +253,7 @@ export default function Purchase({ navigation }) {
         }
 
         editingField.current = null;
+        calculationRequestRef.current += 1;
     };
 
     useEffect(() => {
@@ -248,14 +281,25 @@ export default function Purchase({ navigation }) {
 
         editingField.current = "price";
         setInputMode("price");
+        const requestId = ++calculationRequestRef.current;
 
-        const formattedBalance = sanitizeMoneyInput(String(walletBalance));
+        const balanceCapError = getBuyBalanceLimitError(null, currentMetalBalance, tradeLimits, 'طلا');
+        if (balanceCapError) {
+            showToastOrAlert(balanceCapError);
+            return;
+        }
+
+        const maxTradeAmount = getMaximumTradeAmount(tradeLimits, goldInfo?.gold_buy_price_per_gram, currentMetalBalance);
+        const usableBalance = maxTradeAmount !== null ? Math.min(walletBalance, maxTradeAmount) : walletBalance;
+        const formattedBalance = sanitizeMoneyInput(String(usableBalance));
         setPrice(formattedBalance);
         setPriceWord("");
 
-        const result = await calculateWeightFromPrice(walletBalance);
+        const result = await calculateWeightFromPrice(usableBalance);
+        if (requestId !== calculationRequestRef.current) return;
         setWeight(result.weight);
         setPrice(result.price);
+        setPriceWord(result.priceWords || "");
     };
 
 
@@ -263,8 +307,10 @@ export default function Purchase({ navigation }) {
         const cleanWeight = parseWeight(weight);
         const cleanPrice = parseMoney(price);
 
-        if (!Number.isFinite(cleanWeight) || cleanWeight < 0.001) {
-            showToastOrAlert("حداقل مقدار خرید 0.001 گرم است");
+        const tradeError = getTradeWeightError(cleanWeight, tradeLimits, 'خرید طلا')
+            || getBuyBalanceLimitError(cleanWeight, currentMetalBalance, tradeLimits, 'طلا');
+        if (tradeError) {
+            showToastOrAlert(tradeError);
             return;
         }
 
@@ -331,8 +377,15 @@ export default function Purchase({ navigation }) {
                                 keyboardType={'decimal-pad'}
                                 placeholder='مقدار بر حسب گرم (تا ۳ رقم اعشار)'
                                 value={weight}
-                                maxLength={8}
+                                maxLength={13}
                                 onChangeText={handleWeightChange}
+                            />
+
+                            <TradeLimitNotice
+                                limits={tradeLimits}
+                                operationLabel="خرید طلا"
+                                error={tradeWeightError}
+                                currentBalance={currentMetalBalance}
                             />
 
                             <TextInput
@@ -362,6 +415,7 @@ export default function Purchase({ navigation }) {
                                     <Button
                                         title={'خرید'}
                                         loading={loading}
+                                        disabled={Boolean(tradeWeightError)}
                                         onPress={purchase}
                                     />
                                 </View>

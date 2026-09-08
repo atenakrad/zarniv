@@ -2,14 +2,19 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import { uri } from "../services/URL";
 
-export const fetchTradingAllowed = createAsyncThunk("tradingAllowed/fetchTradingAllowed", async () => {
-    
-    
-    return await axios
-        .get(`${uri}/traiding-allowed/`)
-        .then((response) => response?.data)
-        .catch((error) => { console.log(error, '4') });
-});
+export const fetchTradingAllowed = createAsyncThunk(
+    "tradingAllowed/fetchTradingAllowed",
+    async (_, { getState }) => {
+        const accessToken = getState()?.token?.accessToken;
+        const headers = {
+            Accept: "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        };
+
+        const response = await axios.get(`${uri}/traiding-allowed/`, { headers });
+        return response?.data;
+    }
+);
 
 const tradingAllowedSlice = createSlice({
     name: "trading",
@@ -29,7 +34,6 @@ const tradingAllowedSlice = createSlice({
         });
         builder.addCase(fetchTradingAllowed.rejected, (state, action) => {
             state.loading = false;
-            state.data = null;
             state.error = action.error.message;
         });
     },
