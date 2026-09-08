@@ -395,7 +395,7 @@ export default function Purchase({ navigation }) {
                                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                                 <View style={NewStyles.rowWrapper}>
                                     <Text style={[NewStyles.text10, { flex: 1, paddingLeft: 10 }]}>قیمت خرید هر گرم طلا براساس طلای 18 عیار</Text>
-                                    <Text style={NewStyles.text10}>{formatPrice((1 + Number(goldInfo?.gold_buy_percent) / 100) * goldPrice)} تومان</Text>
+                                    <Text style={NewStyles.text10}>{formatPrice(Number((1 + Number(goldInfo?.gold_buy_percent) / 100) * goldPrice)?.toFixed(0))} تومان</Text>
                                 </View>
                             </View>
 
