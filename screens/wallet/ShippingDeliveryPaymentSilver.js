@@ -14,9 +14,15 @@ const ShippingDeliveryPaymentSilver = ({ route }) => {
 
                 <ScrollView contentContainerStyle={{ paddingHorizontal: '5%', paddingVertical: 15, gap: 10 }} showsVerticalScrollIndicator={false}>
                     <BankInfoComponent />
+                    <View style={[NewStyles.border10, { padding: 12, gap: 6 }]}>
+                        <Text style={NewStyles.text10}>هزینه پایه ارسال: {formatPrice(params?.shipping_base_cost || 0)} تومان</Text>
+                        <Text style={NewStyles.text10}>هزینه بیمه: {formatPrice(params?.shipping_insurance_cost || 0)} تومان</Text>
+                        <Text style={NewStyles.title10}>جمع قابل پرداخت: {formatPrice(params?.shipping_cost || 0)} تومان</Text>
+                    </View>
                     <RecieptFormComponent
                         title={`پرداخت هزینه ارسال تحویل فیزیکی نقره به مبلغ ${formatPrice(params?.shipping_cost)} تومان`}
                         request_type={'delivery_shipping'}
+                        fixedAmount={params?.shipping_cost}
                         physical_delivery_silver_request_id={params?.physical_delivery_silver_request_id}
                     />
                 </ScrollView>

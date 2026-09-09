@@ -11,7 +11,7 @@ import axios from 'axios';
 import { uri } from '../services/URL';
 import { useSelector } from 'react-redux';
 import * as ImagePicker from 'expo-image-picker';
-import { handleError, showToastOrAlert } from '../helpers/Common';
+import { formatPrice, handleError, showToastOrAlert } from '../helpers/Common';
 import { useTranslation } from 'react-i18next';
 
 const RecieptFormComponent = ({
@@ -24,9 +24,10 @@ const RecieptFormComponent = ({
     userBankAccounts: suppliedUserAccounts,
     siteBankAccounts: suppliedSiteAccounts,
     onSuccess,
+    fixedAmount = null,
 }) => {
     const navigation = useNavigation();
-    const [priceReciep, setPriceReciep] = useState('');
+    const [priceReciep, setPriceReciep] = useState(fixedAmount ? String(fixedAmount) : '');
     const [description, setDescription] = useState('');
     const [reciepCover, setReciepCover] = useState({ uri: '', name: '', type: '' });
     const [loadingReciep, setLoadingReciep] = useState(false);
@@ -55,6 +56,12 @@ const RecieptFormComponent = ({
             setDestinationAccountId(sites[0]?.id || null);
         }
     };
+
+    useEffect(() => {
+        if (fixedAmount !== null && fixedAmount !== undefined && Number(fixedAmount) > 0) {
+            setPriceReciep(String(fixedAmount));
+        }
+    }, [fixedAmount]);
 
     useEffect(() => {
         if (Array.isArray(suppliedUserAccounts) || Array.isArray(suppliedSiteAccounts)) {
@@ -116,7 +123,7 @@ const RecieptFormComponent = ({
         setLoadingReciep(true);
         try {
             const formData = new FormData();
-            formData.append('amount', priceReciep);
+            formData.append('amount', fixedAmount ? String(fixedAmount) : priceReciep);
             formData.append('description', description);
             formData.append('request_type', request_type);
 
@@ -147,7 +154,7 @@ const RecieptFormComponent = ({
             });
 
             showToastOrAlert(response?.data?.message);
-            setPriceReciep('');
+            setPriceReciep(fixedAmount ? String(fixedAmount) : '');
             setReciepCover({ uri: '', name: '', type: '' });
             setDescription('');
             onSuccess?.();
@@ -193,14 +200,21 @@ const RecieptFormComponent = ({
                 <Text style={NewStyles.text10}>
                     مبلغ واریزی به تومان<Text style={NewStyles.title6}>*</Text>
                 </Text>
-                <TextInput
-                    style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
-                    placeholder='مبلغ واریزی'
-                    keyboardType={Platform?.OS === 'ios' ? 'numbers-and-punctuation' : 'number-pad'}
-                    placeholderTextColor={themeColor3.bgColor(1)}
-                    value={priceReciep?.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    onChangeText={(value) => setPriceReciep(value?.replace(/,/g, '').replace(/[^0-9]/g, ''))}
-                />
+                {fixedAmount ? (
+                    <View style={[NewStyles.textInput, NewStyles.border10, { justifyContent: 'center' }]}>
+                        <Text style={NewStyles.title10}>{formatPrice(fixedAmount)} تومان</Text>
+                        <Text style={NewStyles.text3}>مبلغ توسط سرور محاسبه شده و قابل تغییر نیست.</Text>
+                    </View>
+                ) : (
+                    <TextInput
+                        style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
+                        placeholder='مبلغ واریزی'
+                        keyboardType={Platform?.OS === 'ios' ? 'numbers-and-punctuation' : 'number-pad'}
+                        placeholderTextColor={themeColor3.bgColor(1)}
+                        value={priceReciep?.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                        onChangeText={(value) => setPriceReciep(value?.replace(/,/g, '').replace(/[^0-9]/g, ''))}
+                    />
+                )}
             </View>
 
             <View style={{ gap: 5 }}>
