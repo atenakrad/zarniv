@@ -79,9 +79,16 @@ export const getTradeLimits = (source, operation, metal, fallbackSource = null) 
     const primary = readLimits(source);
     const fallback = readLimits(fallbackSource);
 
+    const hasMax = primary.hasMax || fallback.hasMax;
+    const max = primary.hasMax ? primary.max : (fallback.hasMax ? fallback.max : null);
+
     return {
         min: primary.min || fallback.min || DEFAULT_TRADE_MIN_GRAM,
-        max: primary.hasMax ? primary.max : (fallback.hasMax ? fallback.max : null),
+        max,
+        // hasMax مشخص می‌کند فیلد سقف واقعاً از API آمده است.
+        // max === null همراه با hasMax === true یعنی بک‌اند مقدار 0 داده و معامله نامحدود است.
+        hasMax,
+        isUnlimited: hasMax && max === null,
         holdingMax: primary.hasHoldingMax
             ? primary.holdingMax
             : (fallback.hasHoldingMax ? fallback.holdingMax : null),

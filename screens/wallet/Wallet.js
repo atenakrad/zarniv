@@ -64,13 +64,16 @@ export default function Wallet({ navigation }) {
 
     useFocusEffect(
         useCallback(() => {
-            dispatch(fetchTradingAllowed())
-        }, []),
+            if (accessToken) {
+                dispatch(fetchUser(accessToken));
+            }
+            dispatch(fetchTradingAllowed());
+        }, [accessToken, dispatch]),
     );
 
     return (
         <SafeAreaView style={NewStyles.container} edges={{ top: 'off', bottom: 'off' }}>
-            <ScrollView contentContainerStyle={styles.contentContainerStyle} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl colors={[themeColor0.bgColor(1)]} progressBackgroundColor={themeColor1.bgColor(1)} refreshing={refreshing} onRefresh={() => { dispatch(fetchUser(accessToken)) }} />}>
+            <ScrollView contentContainerStyle={styles.contentContainerStyle} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl colors={[themeColor0.bgColor(1)]} progressBackgroundColor={themeColor1.bgColor(1)} refreshing={refreshing} onRefresh={() => { if (accessToken) dispatch(fetchUser(accessToken)); }} />}>
                 <WalletCarousal data={wallets} />
                 <Chart slug={'YekGram18'} title={'طلای 18 عیار / 750'} />
             </ScrollView>

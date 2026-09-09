@@ -5,6 +5,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 import NewStyles from '../../styles/NewStyles';
 import { themeColor0, themeColor1, themeColor10, themeColor12, themeColor3, themeColor4, themeColor5 } from '../../theme/Color';
@@ -34,10 +35,15 @@ export default function ChargeSilverWallet({ navigation }) {
     const tradeLimits = getTradeLimits(tradingData, 'buy', 'silver', silverInfo);
     const editingField = useRef(null);
     const calculationRequestRef = useRef(0);
-    useEffect(() => {
-        dispatch(fetchSilverInfoPrice({ params: null }))
-        dispatch(fetchTradingAllowed())
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            if (accessToken) {
+                dispatch(fetchUser(accessToken));
+            }
+            dispatch(fetchSilverInfoPrice({ params: null }));
+            dispatch(fetchTradingAllowed());
+        }, [accessToken, dispatch]),
+    );
 
     const user = useSelector((state) => state.user?.data);
     const currentMetalBalance = Number(user?.wallet?.silver_balance || 0);
@@ -131,8 +137,7 @@ export default function ChargeSilverWallet({ navigation }) {
         };
 
         try {
-            const response = await dispatch(fetchSilverInfoPrice({ params: payload }));
-            const payloadData = response?.payload;
+            const payloadData = await dispatch(fetchSilverInfoPrice({ params: payload })).unwrap();
 
             if (!payloadData || payloadData?.error) {
                 throw new Error(payloadData?.message || 'invalid response');
@@ -159,8 +164,7 @@ export default function ChargeSilverWallet({ navigation }) {
         };
 
         try {
-            const response = await dispatch(fetchSilverInfoPrice({ params: payload }));
-            const payloadData = response?.payload;
+            const payloadData = await dispatch(fetchSilverInfoPrice({ params: payload })).unwrap();
 
             if (!payloadData || payloadData?.error) {
                 throw new Error(payloadData?.message || 'invalid response');
@@ -468,7 +472,6 @@ export default function ChargeSilverWallet({ navigation }) {
         } finally {
             if (paymentMethod === 'wallet') {
                 setLoading(false);
-                dispatch(fetchTradingAllowed());
             } else {
                 // Linking.openURL فقط hand-off به مرورگر را انجام می‌دهد.
                 // لودر فقط تا گرفتن URL و باز شدن مرورگر لازم است؛ نتیجه پرداخت
@@ -488,7 +491,7 @@ export default function ChargeSilverWallet({ navigation }) {
                          
                         <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
 
-                        {(!user?.is_national_birth_verified || !user?.is_phone_national_verified) && <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
+                        {user && (!user?.is_national_birth_verified || !user?.is_phone_national_verified) && <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
                             <View style={[NewStyles.row, { gap: 10 }]}>
                                 <Ionicons name="alert-circle-outline" size={24} color={themeColor0.bgColor(1)} />
                                 <Text style={[NewStyles.text, { flex: 1 }]}>حساب کاربری شما در حال حاضر احراز هویت نشده است، برای شروع خرید و فروش ابتدا بایستی حساب کاربری خود را احراز هویت کنید.</Text>

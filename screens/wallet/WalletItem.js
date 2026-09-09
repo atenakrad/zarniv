@@ -14,6 +14,8 @@ export default function WalletItem({ item, x, index, size, spacer }) {
 
     const [aspectRatio, setAspectRatio] = useState(1);
     const user = useSelector(state => state.user?.data);
+    const accessToken = useSelector(state => state.token?.accessToken);
+    const isAuthenticated = Boolean(accessToken);
     // Get Image Width and Height to Calculate AspectRatio
     useLayoutEffect(() => {
         if (item?.file_path) {
@@ -57,10 +59,16 @@ export default function WalletItem({ item, x, index, size, spacer }) {
                             <Text style={[NewStyles.text4, { color: item?.color }]}>{item?.text3}</Text>
                         </Pressable>}
                     </View>
-                    <Text style={[NewStyles.text4, { color: item?.color }]}>موجودی: {item?.id == '1' ? ((user?.wallet?.gold_balance || 0.000) + ' گرم') : item?.id == '3' ? ((user?.wallet?.silver_balance || 0.000) + ' گرم') : (formatPrice(user?.wallet?.balance || 0) + ' تومان')}</Text>
+                    <Text style={[NewStyles.text4, { color: item?.color }]}>موجودی: {!isAuthenticated
+                        ? 'برای مشاهده وارد شوید'
+                        : item?.id == '1'
+                            ? (user?.wallet ? `${user.wallet.gold_balance ?? 0} گرم` : 'در حال بروزرسانی...')
+                            : item?.id == '3'
+                                ? (user?.wallet ? `${user.wallet.silver_balance ?? 0} گرم` : 'در حال بروزرسانی...')
+                                : (user?.wallet ? `${formatPrice(user.wallet.balance ?? 0)} تومان` : 'در حال بروزرسانی...')}</Text>
 
 
-                    {item?.id == '2' && <View style={NewStyles.rowWrapper}>
+                    {item?.id == '2' && isAuthenticated && <View style={NewStyles.rowWrapper}>
                         <Text style={NewStyles.text4}>شماره کارت</Text>
                         <Text style={NewStyles.title4}>{user?.card_number || '-'}</Text>
                     </View>}

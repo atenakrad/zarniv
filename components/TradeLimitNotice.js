@@ -7,6 +7,7 @@ import { formatGramLimit, getRemainingBuyCapacity } from '../helpers/tradeLimits
 
 export default function TradeLimitNotice({ limits, operationLabel, error, currentBalance }) {
     const minText = formatGramLimit(limits?.min);
+    const hasMax = Boolean(limits?.hasMax);
     const maxText = limits?.max ? formatGramLimit(limits.max) : '';
     const remainingCapacity = currentBalance !== undefined
         ? getRemainingBuyCapacity(currentBalance, limits)
@@ -18,11 +19,18 @@ export default function TradeLimitNotice({ limits, operationLabel, error, curren
             : `ظرفیت خرید جدید: 0 گرم`)
         : '';
 
-    const baseMessage = maxText
-        ? `بازه مجاز ${operationLabel}: ${minText} تا ${maxText} گرم`
-        : `حداقل مقدار ${operationLabel}: ${minText} گرم`;
+    let baseMessage;
+    if (!hasMax) {
+        // تا قبل از دریافت قرارداد limit از سرور، متن ناقص/گمراه‌کننده نشان نمی‌دهیم.
+        baseMessage = `در حال دریافت محدودیت ${operationLabel}...`;
+    } else if (maxText) {
+        baseMessage = `حداقل ${operationLabel}: ${minText} گرم • حداکثر ${operationLabel}: ${maxText} گرم`;
+    } else {
+        // طبق قرارداد بک‌اند، max=0 یعنی این عملیات سقف وزنی ندارد.
+        baseMessage = `حداقل ${operationLabel}: ${minText} گرم • حداکثر ${operationLabel}: نامحدود`;
+    }
 
-    const message = error || (capacityText ? `${baseMessage} • ${capacityText}` : baseMessage);
+    const infoMessage = capacityText ? `${baseMessage} • ${capacityText}` : baseMessage;
 
     return (
         <View style={[
@@ -35,13 +43,16 @@ export default function TradeLimitNotice({ limits, operationLabel, error, curren
                 size={18}
                 color={error ? themeColor6.bgColor(1) : themeColor0.bgColor(1)}
             />
-            <Text style={[
-                NewStyles.text10,
-                styles.text,
-                error && { color: themeColor6.bgColor(1) },
-            ]}>
-                {message}
-            </Text>
+            <View style={styles.messageWrapper}>
+                <Text style={[NewStyles.text10, styles.text]}>
+                    {infoMessage}
+                </Text>
+                {Boolean(error) && (
+                    <Text style={[NewStyles.text10, styles.text, styles.errorText]}>
+                        {error}
+                    </Text>
+                )}
+            </View>
         </View>
     );
 }
@@ -62,8 +73,14 @@ const styles = StyleSheet.create({
         backgroundColor: themeColor6.bgColor(0.06),
         borderColor: themeColor6.bgColor(0.35),
     },
-    text: {
+    messageWrapper: {
         flex: 1,
+        gap: 3,
+    },
+    text: {
         fontSize: 12,
+    },
+    errorText: {
+        color: themeColor6.bgColor(1),
     },
 });
