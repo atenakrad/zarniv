@@ -58,6 +58,7 @@ export const getTradeLimits = (source, operation, metal, fallbackSource = null) 
             : (operation === 'buy' ? max : null);
 
         const pendingRaw = metalLimits?.pending_gateway_buy_gram;
+        const pendingAdminRaw = metalLimits?.pending_admin_approval_gram;
         const remainingRaw = metalLimits?.remaining_buy_capacity_gram;
 
         return {
@@ -68,6 +69,8 @@ export const getTradeLimits = (source, operation, metal, fallbackSource = null) 
             hasHoldingMax,
             pendingGateway: toNonNegativeNumber(pendingRaw),
             hasPendingGateway: hasApiValue(pendingRaw),
+            pendingAdmin: toNonNegativeNumber(pendingAdminRaw),
+            hasPendingAdmin: hasApiValue(pendingAdminRaw),
             serverRemainingCapacity: toNonNegativeNumber(remainingRaw),
             hasServerRemainingCapacity: hasApiValue(remainingRaw),
         };
@@ -85,6 +88,9 @@ export const getTradeLimits = (source, operation, metal, fallbackSource = null) 
         pendingGateway: primary.hasPendingGateway
             ? (primary.pendingGateway ?? 0)
             : (fallback.pendingGateway ?? 0),
+        pendingAdmin: primary.hasPendingAdmin
+            ? (primary.pendingAdmin ?? 0)
+            : (fallback.pendingAdmin ?? 0),
         serverRemainingCapacity: primary.hasServerRemainingCapacity
             ? primary.serverRemainingCapacity
             : (fallback.serverRemainingCapacity ?? null),
@@ -124,8 +130,9 @@ export const getRemainingBuyCapacity = (currentBalance, limits) => {
 
     const maxMg = toMilliGram(max);
     const currentMg = Math.max(0, toMilliGram(currentBalance) ?? 0);
-    const pendingMg = Math.max(0, toMilliGram(limits?.pendingGateway) ?? 0);
-    const localRemainingMg = Math.max(0, maxMg - currentMg - pendingMg);
+    const pendingGatewayMg = Math.max(0, toMilliGram(limits?.pendingGateway) ?? 0);
+    const pendingAdminMg = Math.max(0, toMilliGram(limits?.pendingAdmin) ?? 0);
+    const localRemainingMg = Math.max(0, maxMg - currentMg - pendingGatewayMg - pendingAdminMg);
 
     const serverRemaining = toNonNegativeNumber(limits?.serverRemainingCapacity);
     if (serverRemaining === null) return localRemainingMg / 1000;
@@ -138,7 +145,9 @@ export const getMetalBalanceLimitError = (addedWeight, currentBalance, limits, m
     const max = toPositiveNumber(limits?.holdingMax) || toPositiveNumber(limits?.max);
     if (!max) return "";
 
-    const pendingMg = Math.max(0, toMilliGram(limits?.pendingGateway) ?? 0);
+    const pendingGatewayMg = Math.max(0, toMilliGram(limits?.pendingGateway) ?? 0);
+    const pendingAdminMg = Math.max(0, toMilliGram(limits?.pendingAdmin) ?? 0);
+    const pendingMg = pendingGatewayMg + pendingAdminMg;
     const remainingCapacity = getRemainingBuyCapacity(currentBalance, limits);
     const remainingMg = Math.max(0, toMilliGram(remainingCapacity) ?? 0);
 
@@ -149,7 +158,7 @@ export const getMetalBalanceLimitError = (addedWeight, currentBalance, limits, m
     const addedMg = toMilliGram(addedWeight);
     if (addedMg !== null && addedMg > 0 && addedMg > remainingMg) {
         const pendingText = pendingMg > 0
-            ? ` با احتساب ${formatGramLimit(pendingMg / 1000)} گرم خرید در انتظار پرداخت،`
+            ? ` با احتساب ${formatGramLimit(pendingMg / 1000)} گرم خرید/درخواست در انتظار،`
             : '';
         return `${actionLabel} باعث می‌شود موجودی ${metalLabel} از سقف مجاز ${formatGramLimit(max)} گرم بیشتر شود.${pendingText} ظرفیت باقی‌مانده ${formatGramLimit(remainingMg / 1000)} گرم است`;
     }

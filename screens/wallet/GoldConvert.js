@@ -1,6 +1,5 @@
 import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { useCallback, useEffect, useState, useRef } from 'react'
-import * as Linking from 'expo-linking';
+import { useEffect, useState, useRef } from 'react'
 import Ionicons from '@expo/vector-icons/Ionicons';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
@@ -14,10 +13,8 @@ import { formatPrice, handleError, showToastOrAlert } from '../../helpers/Common
 import { uri } from '../../services/URL';
 import { fetchUser } from '../../slices/userSlice';
 import { fetchRate } from '../../slices/rateSlice';
-import { fetchGoldPrice } from '../../slices/goldPriceSlice';
 import { useTranslation } from 'react-i18next';
 import { fetchInfoPrice } from '../../slices/goldInfoSlice';
-import Loader from './../../components/Loader';
 import VoteTimerDisplay from '../../components/VoteTimerDisplay';
 import { fetchTradingAllowed } from '../../slices/tradingAllowed';
 import { getMetalBalanceLimitError, getTradeLimits, getTradeWeightError, TRADE_CALCULATION_DEBOUNCE_MS } from '../../helpers/tradeLimits';
@@ -100,8 +97,6 @@ export default function GoldConvert({ navigation }) {
     }
     try {
       const response = await dispatch(fetchInfoPrice({ params: payload }))
-      console.log(response?.payload);
-      
       return ({
         calculatedPrice: formatNumber(Math.round(response?.payload?.price)),
         final_silver_gram: response?.payload?.final_silver_gram
@@ -190,14 +185,17 @@ export default function GoldConvert({ navigation }) {
     try {
       const response = await axios.post(`${uri}/gold-to-sliver/`, payload, { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } });
       dispatch(fetchUser(accessToken));
+      dispatch(fetchTradingAllowed());
+      showToastOrAlert(
+        response?.data?.message
+        || (response?.data?.requires_admin_approval
+          ? 'درخواست تبدیل ثبت شد و در انتظار تأیید مدیر است.'
+          : 'تبدیل طلا به نقره با موفقیت انجام شد.')
+      );
       setPrice("")
       setSilverGram("")
       setWeight("")
-      console.log(response?.data);
-      
     } catch (error) {
-      console.log(error?.response?.data);
-      
       handleError(error, t)
     } finally {
       dispatch(fetchTradingAllowed())
@@ -273,7 +271,7 @@ export default function GoldConvert({ navigation }) {
                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                 <View style={NewStyles.rowWrapper}>
                   <Text style={NewStyles.text10}>جایزه تبدیل فعال</Text>
-                  <Text style={NewStyles.text10}>{goldInfo?.gold_to_silver}%</Text>
+                  <Text style={NewStyles.text10}>{tradingData?.conversion_bonus_percent?.gold_to_silver ?? goldInfo?.gold_to_silver ?? 0}%</Text>
                 </View>
                 {price && <>
                   <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />

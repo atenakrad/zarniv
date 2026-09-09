@@ -3,17 +3,17 @@ import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import NewStyles from '../styles/NewStyles';
 import { themeColor0, themeColor1, themeColor10, themeColor4 } from '../theme/Color';
 
-export default function Button({ title, onPress, loading, style, color, disabled = false }) {
+export default function Button({ title, onPress, loading, style, color, loadingColor, disabled = false, shadow = true }) {
     const isDisabled = loading || disabled;
 
     return (
         <Pressable
-            style={[styles.button, NewStyles.center, NewStyles.shadow, NewStyles.border5, style, disabled && styles.disabled]}
+            style={[styles.button, NewStyles.center, shadow && NewStyles.shadow, NewStyles.border5, style, disabled && styles.disabled]}
             disabled={isDisabled}
             onPress={onPress}
         >
             {!loading && <Text style={[NewStyles.title4, color && { color: color }, {width:'100%', textAlign:'center'}]}>{title}</Text>}
-            {loading && <ActivityIndicator color={themeColor4.bgColor(1)} size='small' />}
+            {loading && <ActivityIndicator color={loadingColor || themeColor4.bgColor(1)} size='small' />}
         </Pressable>
     )
 }

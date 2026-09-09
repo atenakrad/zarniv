@@ -4,15 +4,21 @@ import { uri } from "../services/URL";
 
 export const fetchTradingAllowed = createAsyncThunk(
     "tradingAllowed/fetchTradingAllowed",
-    async (_, { getState }) => {
-        const accessToken = getState()?.token?.accessToken;
-        const headers = {
-            Accept: "application/json",
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        };
-
-        const response = await axios.get(`${uri}/traiding-allowed/`, { headers });
-        return response?.data;
+    async (_, { getState, rejectWithValue }) => {
+        try {
+            const accessToken = getState()?.token?.accessToken;
+            const response = await axios.get(`${uri}/traiding-allowed/`, {
+                headers: {
+                    Accept: "application/json",
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                },
+            });
+            return response?.data;
+        } catch (error) {
+            return rejectWithValue(
+                error?.response?.data?.message || error?.message || "خطا در دریافت وضعیت معاملات"
+            );
+        }
     }
 );
 
@@ -34,10 +40,10 @@ const tradingAllowedSlice = createSlice({
         });
         builder.addCase(fetchTradingAllowed.rejected, (state, action) => {
             state.loading = false;
-            state.error = action.error.message;
+            state.data = null;
+            state.error = action.payload || action.error.message;
         });
     },
 });
-
 
 export default tradingAllowedSlice.reducer;

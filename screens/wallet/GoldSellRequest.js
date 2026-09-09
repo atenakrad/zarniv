@@ -1,6 +1,5 @@
 import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import { useCallback, useEffect, useState, useRef } from 'react'
-import * as Linking from 'expo-linking';
+import { useEffect, useState, useRef } from 'react'
 import Ionicons from '@expo/vector-icons/Ionicons';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
@@ -258,27 +257,6 @@ export default function GoldSellRequest({ navigation }) {
             }
         };
     }, []);
-    const redirectUrl = Linking.createURL("/?");
-
-    const handleDeepLink = useCallback(({ url }) => {
-        const { queryParams } = Linking.parse(url);
-        if (queryParams?.Status == 'OK' && queryParams?.type == 'purchase') {
-            dispatch(fetchUser(accessToken));
-            showToastOrAlert('پرداخت موفق');
-            setLoading(false);
-        } else if (queryParams?.Status == 'NOK' && queryParams?.type == 'purchase') {
-            showToastOrAlert('پرداخت با خطا مواجه شد.')
-            setLoading(false);
-        }
-    }, [accessToken, navigation]);
-
-    useEffect(() => {
-        const subscription = Linking.addEventListener("url", handleDeepLink);
-        return () => {
-            subscription.remove();
-        };
-    }, [handleDeepLink]);
-
     const useAllMetalBalance = async () => {
         const walletBalance = Number(user?.wallet?.gold_balance || 0);
 
@@ -340,7 +318,13 @@ export default function GoldSellRequest({ navigation }) {
             );
 
             dispatch(fetchUser(accessToken));
-            showToastOrAlert(response?.data?.message);
+            dispatch(fetchTradingAllowed());
+            showToastOrAlert(
+                response?.data?.message
+                || (response?.data?.requires_admin_approval
+                    ? 'درخواست فروش ثبت شد و در انتظار تأیید مدیر است.'
+                    : 'فروش طلا با موفقیت انجام شد.')
+            );
             setPrice("");
             setWeight("");
             setPriceWord("");

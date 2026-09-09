@@ -1,4 +1,4 @@
-import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { AppState, KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import * as Linking from 'expo-linking';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -43,6 +43,7 @@ export default function Purchase({ navigation }) {
     const currentMetalBalance = Number(user?.wallet?.gold_balance || 0);
     const isBalanceAtBuyLimit = hasReachedBuyBalanceLimit(currentMetalBalance, tradeLimits);
     const [loading, setLoading] = useState(false)
+    const [gatewayLoading, setGatewayLoading] = useState(false)
     const [refreshing, setRefreshing] = useState(false);
 
     const [weight, setWeight] = useState("")
@@ -52,6 +53,11 @@ export default function Purchase({ navigation }) {
 
     const weightTimeoutRef = useRef(null);
     const priceTimeoutRef = useRef(null);
+    const gatewayPendingRef = useRef(false);
+    const gatewayFallbackTimerRef = useRef(null);
+    const lastGatewayUrlRef = useRef('');
+    const appStateRef = useRef(AppState.currentState);
+    const redirectUrl = Linking.createURL('/?');
 
     const formatNumber = (num) => {
         if (!num && num !== 0) return "";
@@ -264,9 +270,101 @@ export default function Purchase({ navigation }) {
             if (priceTimeoutRef.current) {
                 clearTimeout(priceTimeoutRef.current);
             }
+            if (gatewayFallbackTimerRef.current) {
+                clearTimeout(gatewayFallbackTimerRef.current);
+            }
         };
     }, []);
 
+
+    const resetTradeForm = useCallback(() => {
+        setPrice("");
+        setWeight("");
+        setPriceWord("");
+    }, []);
+
+    const refreshTradeState = useCallback(() => {
+        if (accessToken) dispatch(fetchUser(accessToken));
+        dispatch(fetchTradingAllowed());
+    }, [accessToken, dispatch]);
+
+    const handleGatewayDeepLink = useCallback(({ url }) => {
+        if (!url || lastGatewayUrlRef.current === url) return;
+
+        const { queryParams } = Linking.parse(url);
+        const param = (value) => Array.isArray(value) ? value[0] : value;
+        const type = String(param(queryParams?.type) || '');
+        const resultMetal = String(param(queryParams?.metal) || '');
+
+        if (type !== 'metal_purchase' || (resultMetal && resultMetal !== 'gold')) return;
+
+        lastGatewayUrlRef.current = url;
+        gatewayPendingRef.current = false;
+        if (gatewayFallbackTimerRef.current) {
+            clearTimeout(gatewayFallbackTimerRef.current);
+            gatewayFallbackTimerRef.current = null;
+        }
+        setGatewayLoading(false);
+        refreshTradeState();
+
+        const statusValue = String(param(queryParams?.Status) || '').toUpperCase();
+        const result = String(param(queryParams?.result) || '');
+        const message = String(param(queryParams?.message) || '');
+
+        if (statusValue === 'OK' && result === 'completed') {
+            showToastOrAlert(message || 'خرید طلا با موفقیت انجام شد.');
+            resetTradeForm();
+            return;
+        }
+        if (statusValue === 'OK' && result === 'awaiting_approval') {
+            showToastOrAlert(message || 'پرداخت موفق بود و درخواست خرید در انتظار تأیید مدیر است.');
+            resetTradeForm();
+            return;
+        }
+        if (statusValue === 'OK' && result === 'balance_cap_refunded') {
+            showToastOrAlert(message || 'پرداخت تأیید شد اما به دلیل تکمیل سقف موجودی، مبلغ به کیف پول ریالی برگشت داده شد.');
+            resetTradeForm();
+            return;
+        }
+        if (result === 'approval_rejected') {
+            showToastOrAlert(message || 'درخواست خرید توسط مدیر رد شده است.');
+            return;
+        }
+
+        showToastOrAlert(message || 'پرداخت ناموفق بود یا نتیجه آن تأیید نشد.');
+    }, [refreshTradeState, resetTradeForm]);
+
+    useEffect(() => {
+        const subscription = Linking.addEventListener('url', handleGatewayDeepLink);
+        Linking.getInitialURL()
+            .then((initialUrl) => {
+                if (initialUrl) handleGatewayDeepLink({ url: initialUrl });
+            })
+            .catch(() => {});
+        return () => subscription.remove();
+    }, [handleGatewayDeepLink]);
+
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (nextState) => {
+            const returnedFromBackground = /inactive|background/.test(appStateRef.current) && nextState === 'active';
+            appStateRef.current = nextState;
+            if (!returnedFromBackground || !gatewayPendingRef.current) return;
+
+            // برگشت دستی از مرورگر/درگاه نباید دکمه را روی لودینگ نگه دارد.
+            // نتیجه قطعی پرداخت، در صورت وجود، همچنان توسط deep-link هندل می‌شود.
+            setGatewayLoading(false);
+
+            if (gatewayFallbackTimerRef.current) clearTimeout(gatewayFallbackTimerRef.current);
+            gatewayFallbackTimerRef.current = setTimeout(() => {
+                if (!gatewayPendingRef.current) return;
+                gatewayPendingRef.current = false;
+                setGatewayLoading(false);
+                refreshTradeState();
+                showToastOrAlert('به اپ برگشتید اما نتیجه قطعی پرداخت از درگاه دریافت نشد. وضعیت موجودی و تراکنش را بررسی کنید.');
+            }, 1800);
+        });
+        return () => subscription.remove();
+    }, [refreshTradeState]);
 
     const useAllCashBalance = async () => {
         const walletBalance = Number(user?.wallet?.balance || 0);
@@ -303,7 +401,7 @@ export default function Purchase({ navigation }) {
     };
 
 
-    const purchase = async () => {
+    const purchase = async (paymentMethod = 'wallet') => {
         const cleanWeight = parseWeight(weight);
         const cleanPrice = parseMoney(price);
 
@@ -313,29 +411,73 @@ export default function Purchase({ navigation }) {
             showToastOrAlert(tradeError);
             return;
         }
-
         if (!Number.isFinite(cleanPrice) || cleanPrice <= 0) {
             showToastOrAlert("لطفاً مبلغ معتبری وارد کنید");
             return;
         }
 
-        setLoading(true);
+        if (paymentMethod === 'gateway') {
+            const gatewayLimit = Number(tradingData?.gateway_payment_limit || 0);
+            if (gatewayLimit > 0 && cleanPrice > gatewayLimit) {
+                showToastOrAlert('مبلغ خرید از سقف مجاز پرداخت درگاه بیشتر است.');
+                return;
+            }
+            setGatewayLoading(true);
+            gatewayPendingRef.current = true;
+            lastGatewayUrlRef.current = '';
+        } else {
+            setLoading(true);
+        }
+
         try {
             const response = await axios.post(
                 `${uri}/chargeGoldWallet/`,
-                { weight: cleanWeight, price: cleanPrice, mode: inputMode },
-                { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } }
+                {
+                    weight: cleanWeight,
+                    price: cleanPrice,
+                    mode: inputMode,
+                    payment_method: paymentMethod,
+                    ...(paymentMethod === 'gateway' ? { linkingUri: redirectUrl } : {}),
+                },
+                {
+                    headers: {
+                        Accept: 'application/json',
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                }
             );
-            dispatch(fetchUser(accessToken));
-            showToastOrAlert('خرید طلا با موفقیت انجام شد.');
-            setPrice("")
-            setWeight("")
-            setPriceWord("")
+
+            if (paymentMethod === 'gateway') {
+                const paymentUrl = response?.data?.payment_url;
+                if (!paymentUrl) throw new Error(response?.data?.message || 'آدرس درگاه دریافت نشد.');
+                await Linking.openURL(paymentUrl);
+                return;
+            }
+
+            refreshTradeState();
+            showToastOrAlert(
+                response?.data?.message
+                || (response?.data?.requires_admin_approval
+                    ? 'درخواست خرید ثبت شد و در انتظار تأیید مدیر است.'
+                    : 'خرید طلا با موفقیت انجام شد.')
+            );
+            resetTradeForm();
         } catch (error) {
-            handleError(error, t)
+            if (paymentMethod === 'gateway') {
+                gatewayPendingRef.current = false;
+                setGatewayLoading(false);
+            }
+            handleError(error, t);
         } finally {
-            dispatch(fetchTradingAllowed())
-            setLoading(false);
+            if (paymentMethod === 'wallet') {
+                setLoading(false);
+                dispatch(fetchTradingAllowed());
+            } else {
+                // Linking.openURL فقط hand-off به مرورگر را انجام می‌دهد.
+                // لودر فقط تا گرفتن URL و باز شدن مرورگر لازم است؛ نتیجه پرداخت
+                // بعداً از deep-link می‌آید. این کار برگشت دستی با Back را هم پوشش می‌دهد.
+                setGatewayLoading(false);
+            }
         }
     };
 
@@ -410,25 +552,36 @@ export default function Purchase({ navigation }) {
                             </TouchableOpacity>
                             {priceWord?.trim() && <Text style={[NewStyles.text1,{fontSize:13}]}>{priceWord}</Text>}
 
-                            <View style={[NewStyles.rowWrapper, { gap: 10 }]}>
-                                <View style={{ flex: 1 }}>
-                                    <Button
-                                        title={'خرید'}
-                                        loading={loading}
-                                        disabled={Boolean(tradeWeightError)}
-                                        onPress={purchase}
-                                    />
+                            <View style={{ gap: 0 }}>
+                                <View style={{ flexDirection: 'row-reverse', gap: 10 }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Button
+                                            title={'خرید با کیف پول'}
+                                            loading={loading}
+                                            disabled={gatewayLoading || Boolean(tradeWeightError)}
+                                            onPress={() => purchase('wallet')}
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Button
+                                            title={'خرید از درگاه'}
+                                            shadow={false}
+                                            loading={gatewayLoading}
+                                            disabled={loading || Boolean(tradeWeightError)}
+                                            onPress={() => purchase('gateway')}
+                                            style={{ backgroundColor: themeColor0.bgColor(0.12), borderColor: themeColor0.bgColor(1), borderWidth: 1 }}
+                                            color={themeColor1.bgColor(1)}
+                                            loadingColor={themeColor1.bgColor(1)}
+                                        />
+                                    </View>
                                 </View>
-                                <View style={{ flex: 1 }}>
-                                    <Button
-                                        title={'شارژ کیف پول'}
-                                        onPress={() => {
-                                            navigation.navigate('Increase')
-                                        }}
-                                        color={themeColor1.bgColor(1)}
-                                        style={{ backgroundColor: themeColor5.bgColor(1), borderColor: themeColor1.bgColor(1), borderWidth: 1 }}
-                                    />
-                                </View>
+                                <TouchableOpacity
+                                    disabled={loading || gatewayLoading}
+                                    onPress={() => navigation.navigate('Increase')}
+                                    style={{ alignSelf: 'center', paddingVertical: 4, paddingHorizontal: 8 }}
+                                >
+                                    <Text style={[NewStyles.text1, { fontSize: 13 }]}>شارژ کیف پول ریالی</Text>
+                                </TouchableOpacity>
                             </View>
 
                             <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>

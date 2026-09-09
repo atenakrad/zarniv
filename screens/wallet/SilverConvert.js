@@ -1,6 +1,5 @@
 import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { useCallback, useEffect, useState, useRef } from 'react'
-import * as Linking from 'expo-linking';
+import { useEffect, useState, useRef } from 'react'
 import Ionicons from '@expo/vector-icons/Ionicons';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
@@ -14,10 +13,8 @@ import { formatPrice, handleError, showToastOrAlert } from '../../helpers/Common
 import { uri } from '../../services/URL';
 import { fetchUser } from '../../slices/userSlice';
 import { fetchRate } from '../../slices/rateSlice';
-import { fetchGoldPrice } from '../../slices/goldPriceSlice';
 import { useTranslation } from 'react-i18next';
 import { fetchInfoPrice } from '../../slices/goldInfoSlice';
-import Loader from './../../components/Loader';
 import VoteTimerDisplay from '../../components/VoteTimerDisplay';
 import { fetchTradingAllowed } from '../../slices/tradingAllowed';
 import { fetchSilverInfoPrice } from '../../slices/silverInfoSlice';
@@ -191,6 +188,13 @@ export default function SilverConvert({ navigation }) {
     try {
       const response = await axios.post(`${uri}/silver-to-gold/`, payload, { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } });
       dispatch(fetchUser(accessToken));
+      dispatch(fetchTradingAllowed());
+      showToastOrAlert(
+        response?.data?.message
+        || (response?.data?.requires_admin_approval
+          ? 'درخواست تبدیل ثبت شد و در انتظار تأیید مدیر است.'
+          : 'تبدیل نقره به طلا با موفقیت انجام شد.')
+      );
       setPrice("")
       setGoldGram("")
       setWeight("")
@@ -269,7 +273,7 @@ export default function SilverConvert({ navigation }) {
                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                 <View style={NewStyles.rowWrapper}>
                   <Text style={NewStyles.text10}>جایزه تبدیل فعال</Text>
-                  <Text style={NewStyles.text10}>{goldInfo?.silver_to_gold}%</Text>
+                  <Text style={NewStyles.text10}>{tradingData?.conversion_bonus_percent?.silver_to_gold ?? goldInfo?.silver_to_gold ?? 0}%</Text>
                 </View>
                 {price && <>
                   <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
