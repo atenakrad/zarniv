@@ -9,6 +9,7 @@ import NewStyles from '../styles/NewStyles';
 import TransparentButton from './TransparentButton';
 import { uri } from '../services/URL';
 import { formatPrice, handleError, showToastOrAlert } from '../helpers/Common';
+import { getWalletPieceSummary } from '../helpers/walletPieces';
 import { fetchCart } from '../slices/cartSlice';
 import { fetchUser } from '../slices/userSlice';
 import axios from 'axios';
@@ -235,7 +236,14 @@ export default function PaymentModal({ paymentModal, setPaymentModal, title, nav
                     setPayWay('gold')
                 }}>
                     <Text style={NewStyles.title10}>کیف پول طلا</Text>
-                    <Text style={NewStyles.title}>{Number(user?.data?.wallet?.gold_balance)} گرم</Text>
+                    <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
+                        <Text style={NewStyles.title}>{Number(user?.data?.wallet?.gold_balance)} گرم</Text>
+                        {!!getWalletPieceSummary(user?.data?.wallet, 'gold') && (
+                            <Text style={[NewStyles.text4, { textAlign: 'right' }]} numberOfLines={2}>
+                                معادل: {getWalletPieceSummary(user?.data?.wallet, 'gold')}
+                            </Text>
+                        )}
+                    </View>
                 </TouchableOpacity>
                 {(totalDiscountedPrice && address?.shippingMethods?.['1']?.price && address?.package && (Number(totalDiscountedPrice) + shippingPrice + Number(address?.package_price)) > tradingData?.gateway_payment_limit) && <TouchableOpacity style={[{ width: '100%', paddingVertical: 10, borderWidth: 1, borderColor: themeColor0.bgColor(0), backgroundColor: themeColor3.bgColor(0.1), paddingHorizontal: 15 }, NewStyles.border10, payWay == 'reserve' && { borderColor: themeColor0.bgColor(1), borderWidth: 1 }]} onPress={() => {
                     setPayWay('reserve')

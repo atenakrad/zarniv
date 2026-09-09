@@ -9,6 +9,7 @@ import NewStyles, { deviceWidth } from '../../styles/NewStyles';
 import { themeColor10, themeColor3, themeColor4 } from '../../theme/Color';
 import { useSelector } from 'react-redux';
 import { formatPrice } from '../../helpers/Common';
+import { getWalletPieceSummary } from '../../helpers/walletPieces';
 
 export default function WalletItem({ item, x, index, size, spacer }) {
 
@@ -16,6 +17,8 @@ export default function WalletItem({ item, x, index, size, spacer }) {
     const user = useSelector(state => state.user?.data);
     const accessToken = useSelector(state => state.token?.accessToken);
     const isAuthenticated = Boolean(accessToken);
+    const metal = item?.id === '1' ? 'gold' : item?.id === '3' ? 'silver' : null;
+    const pieceSummary = metal && user?.wallet ? getWalletPieceSummary(user.wallet, metal) : null;
     // Get Image Width and Height to Calculate AspectRatio
     useLayoutEffect(() => {
         if (item?.file_path) {
@@ -59,13 +62,23 @@ export default function WalletItem({ item, x, index, size, spacer }) {
                             <Text style={[NewStyles.text4, { color: item?.color }]}>{item?.text3}</Text>
                         </Pressable>}
                     </View>
-                    <Text style={[NewStyles.text4, { color: item?.color }]}>موجودی: {!isAuthenticated
-                        ? 'برای مشاهده وارد شوید'
-                        : item?.id == '1'
-                            ? (user?.wallet ? `${user.wallet.gold_balance ?? 0} گرم` : 'در حال بروزرسانی...')
-                            : item?.id == '3'
-                                ? (user?.wallet ? `${user.wallet.silver_balance ?? 0} گرم` : 'در حال بروزرسانی...')
-                                : (user?.wallet ? `${formatPrice(user.wallet.balance ?? 0)} تومان` : 'در حال بروزرسانی...')}</Text>
+                    <View style={{ gap: 4 }}>
+                        <Text style={[NewStyles.text4, { color: item?.color }]}>موجودی: {!isAuthenticated
+                            ? 'برای مشاهده وارد شوید'
+                            : item?.id == '1'
+                                ? (user?.wallet ? `${user.wallet.gold_balance ?? 0} گرم` : 'در حال بروزرسانی...')
+                                : item?.id == '3'
+                                    ? (user?.wallet ? `${user.wallet.silver_balance ?? 0} گرم` : 'در حال بروزرسانی...')
+                                    : (user?.wallet ? `${formatPrice(user.wallet.balance ?? 0)} تومان` : 'در حال بروزرسانی...')}</Text>
+                        {isAuthenticated && pieceSummary && (
+                            <Text
+                                numberOfLines={2}
+                                style={[NewStyles.text4, { color: item?.color, opacity: 0.9, lineHeight: 20 }]}
+                            >
+                                معادل: {pieceSummary}
+                            </Text>
+                        )}
+                    </View>
 
 
                     {item?.id == '2' && isAuthenticated && <View style={NewStyles.rowWrapper}>

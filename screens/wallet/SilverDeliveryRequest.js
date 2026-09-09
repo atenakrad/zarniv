@@ -2,6 +2,7 @@ import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, Tex
 import { useEffect, useState, useRef } from 'react'
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+import WalletPieceBalance from '../../components/WalletPieceBalance';
 import NewStyles from '../../styles/NewStyles';
 import { themeColor0, themeColor1, themeColor10, themeColor12, themeColor3, themeColor4 } from '../../theme/Color';
 import Button from '../../components/Button';
@@ -351,10 +352,7 @@ export default function DeliveryRequest({ navigation }) {
                                     <Text style={NewStyles.text10}>{formatPrice(Number(silverPrice)?.toFixed())} تومان</Text>
                                 </View>
                                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
-                                <View style={NewStyles.rowWrapper}>
-                                    <Text style={NewStyles.text10}>دارایی نقره</Text>
-                                    <Text style={NewStyles.text10}>{formatPrice(user?.wallet?.silver_balance) || '0'} گرم</Text>
-                                </View>
+                                <WalletPieceBalance wallet={user?.wallet} metal="silver" label="دارایی نقره" />
                                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                                 <View style={NewStyles.rowWrapper}>
                                     <Text style={NewStyles.text10}>حداقل درخواست</Text>

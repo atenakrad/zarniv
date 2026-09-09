@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
+import WalletPieceBalance from '../../components/WalletPieceBalance';
 import NewStyles from '../../styles/NewStyles';
 import { themeColor0, themeColor1, themeColor10, themeColor12, themeColor3, themeColor4, themeColor5, themeColor6 } from '../../theme/Color';
 import Button from '../../components/Button';
@@ -274,10 +275,7 @@ export default function SilverConvert({ navigation }) {
               />
 
               <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
-                <View style={NewStyles.rowWrapper}>
-                  <Text style={NewStyles.text10}>موجودی کیف پول</Text>
-                  <Text style={NewStyles.text10}>{formatPrice(user?.wallet?.silver_balance) || '0'} گرم</Text>
-                </View>
+                <WalletPieceBalance wallet={user?.wallet} metal="silver" label="موجودی کیف پول" />
                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                 <View style={NewStyles.rowWrapper}>
                   <Text style={NewStyles.text10}>جایزه تبدیل فعال</Text>

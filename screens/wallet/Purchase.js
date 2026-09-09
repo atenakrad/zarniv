@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
+import WalletPieceBalance from '../../components/WalletPieceBalance';
 import NewStyles from '../../styles/NewStyles';
 import { themeColor0, themeColor1, themeColor10, themeColor12, themeColor3, themeColor4, themeColor5 } from '../../theme/Color';
 import Button from '../../components/Button';
@@ -588,10 +589,7 @@ export default function Purchase({ navigation }) {
                             </View>
 
                             <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
-                                <View style={NewStyles.rowWrapper}>
-                                    <Text style={NewStyles.text10}>دارایی طلا</Text>
-                                    <Text style={NewStyles.text10}>{formatPrice(user?.wallet?.gold_balance) || '0'} گرم</Text>
-                                </View>
+                                <WalletPieceBalance wallet={user?.wallet} metal="gold" label="دارایی طلا" />
                                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                                 <View style={NewStyles.rowWrapper}>
                                     <Text style={NewStyles.text10}>موجودی کیف پول</Text>
