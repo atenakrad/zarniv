@@ -15,12 +15,12 @@ export default function SellGoldRequestItem({ item }) {
                 <Text style={textStyle}>{value}</Text>
             </Pressable>
         ) : null;
-
+ 
     return (
         <View style={[styles.itemWrapper, NewStyles.shadow, NewStyles.border10]}>
             {renderRow(`# ${item?.id ?? '---'}`, `${formatDate(item?.created_at)}`)}
             {renderRow('Amount', `${formatPrice(Number(item?.total_price)?.toFixed(0))} ${t('T')}`)}
-            {renderRow('مقدار', `${item?.weight_mg} میلی‌گرم`)}
+            {renderRow('مقدار', `${item?.weight_mg/1000} گرم`)}
 
             {renderRow('شماره کارت', item?.card_number)}
             {renderRow('شماره شبا', item?.iban)}

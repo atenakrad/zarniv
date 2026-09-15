@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -7,49 +7,25 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import NewStyles from '../styles/NewStyles';
-import { themeColor0, themeColor1, themeColor12, themeColor13 } from '../theme/Color';
+import { themeColor0, themeColor1 } from '../theme/Color';
 
-const pad = (num) => num.toString().padStart(2, '0');
+const pad = (num) => Math.max(0, Number(num) || 0).toString().padStart(2, '0');
 
 const CountdownTimer = ({ title, timeLeft: externalTimeLeft, subTitle }) => {
-  const [timeLeft, setTimeLeft] = useState(externalTimeLeft || 1200);
+  const timeLeft = Number.isFinite(Number(externalTimeLeft))
+    ? Math.max(0, Number(externalTimeLeft))
+    : 0;
   const initialOpacity = useSharedValue(0);
   const bounceAnim = useSharedValue(1);
-
   const prevSecond = useRef(null);
 
-  // Update timeLeft when external prop changes
   useEffect(() => {
-    if (externalTimeLeft !== undefined) {
-      setTimeLeft(externalTimeLeft);
-    }
-  }, [externalTimeLeft]);
-
-  useEffect(() => {
-    // انیمیشن اولیه ظاهر شدن تایمر
-    initialOpacity.value = withTiming(1, { duration: 600 });
-
-    // Only run internal countdown if no external timeLeft is provided
-    if (externalTimeLeft === undefined) {
-      const interval = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [externalTimeLeft]);
+    initialOpacity.value = withTiming(1, { duration: 350 });
+  }, [initialOpacity]);
 
   useEffect(() => {
     const sec = timeLeft % 60;
     if (prevSecond.current !== null && sec !== prevSecond.current) {
-      // وقتی ثانیه تغییر کرد، انیمیشن bounce
       bounceAnim.value = 0.8;
       bounceAnim.value = withTiming(1, {
         duration: 250,
@@ -57,7 +33,7 @@ const CountdownTimer = ({ title, timeLeft: externalTimeLeft, subTitle }) => {
       });
     }
     prevSecond.current = sec;
-  }, [timeLeft]);
+  }, [timeLeft, bounceAnim]);
 
   const animatedInitialStyle = useAnimatedStyle(() => ({
     opacity: initialOpacity.value,
@@ -77,15 +53,15 @@ const CountdownTimer = ({ title, timeLeft: externalTimeLeft, subTitle }) => {
       <Text style={NewStyles.title10}>{title}</Text>
       {subTitle && <Text style={[NewStyles.title10, { fontSize: 18 }]}>{subTitle}</Text>}
       <View style={NewStyles.row}>
-        <Text style={styles.timeText}>
+        <Animated.Text style={[styles.timeText, animatedBounceStyle]}>
           {pad(seconds)}
-        </Text>
+        </Animated.Text>
         <Text style={[styles.timeText, styles.colon]}>:</Text>
         <Text style={styles.timeText}>
           {pad(minutes)}
         </Text>
         <Text style={[styles.timeText, styles.colon]}>:</Text>
-        <Text style={[styles.timeText,]}>
+        <Text style={styles.timeText}>
           {pad(hours)}
         </Text>
       </View>

@@ -130,7 +130,7 @@ export default function App() {
   }
 
   function isUserIranian() {
-    return false;
+    return true;
     const locales = Localization.getLocales();
 
     const hasIranRegion = locales.some((locale) => locale.regionCode === "IR");
@@ -180,257 +180,322 @@ export default function App() {
                     options={{ gestureEnabled: false }}
                   />
 
+
+                  <Stack.Screen name='EditCard' component={EditCard}
+                    options={{
+                      headerShown: true,
+                      header: () => {
+                        return (
+                          <BackHeader title={'حساب‌های بانکی من'} />
+                        )
+                      }
+                    }}
+                  />
+                  <Stack.Screen name='Decrease' component={Decrease} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'درخواست برداشت'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Increase' component={Increase} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'شارژ کیف پول'} />
+                      )
+                    }
+                  }} />
                   {/* Wallet */}
 
-                  <Stack.Screen name="EditCard" component={EditCard} />
-                  <Stack.Screen name="Decrease" component={Decrease} />
-                  <Stack.Screen name="Increase" component={Increase} />
-                  {/* Wallet */}
+                  <Stack.Screen name='Rate Detail' component={RateDetail}
 
-                  <Stack.Screen name="Rate Detail" component={RateDetail} />
+                  />
 
-                  <Stack.Screen
-                    name="ProductsByCollection"
-                    component={ProductsByCollection}
-                    options={{
-                      headerShown: true,
-                      header: ({ route }) => {
-                        const params = route?.params;
-                        return <BackHeader title={`${params?.name}`} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen name="Buy" component={Buy} />
-                  <Stack.Screen name="Sell" component={Sell} />
-                  <Stack.Screen name="History" component={History} />
-                  <Stack.Screen name="Address" component={Address} />
-                  <Stack.Screen
-                    name="RecieptLists"
-                    component={RecieptLists}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"فیش‌های واریزی"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="PayReserve"
-                    component={PayReserve}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"پرداخت باقی مبلغ"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="ShippingDeliveryPayment"
-                    component={ShippingDeliveryPayment}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"پرداخت هزینه ارسال"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="ShippingDeliveryPaymentSilver"
-                    component={ShippingDeliveryPaymentSilver}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"پرداخت هزینه ارسال"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen name="Order Detail" component={OrderDetail} />
-                  <Stack.Screen name="Verify" component={Verify} />
-                  <Stack.Screen name="Purchase" component={Purchase} />
-                  <Stack.Screen
-                    name="ChargeSilverWallet"
-                    component={ChargeSilverWallet}
-                  />
-                  <Stack.Screen
-                    name="SilverConvert"
-                    component={SilverConvert}
-                  />
-                  <Stack.Screen name="GoldConvert" component={GoldConvert} />
-                  <Stack.Screen
-                    name="SilverDeliveryRequest"
-                    component={SilverDeliveryRequest}
-                  />
-                  <Stack.Screen
-                    name="GoldSellRequest"
-                    component={GoldSellRequest}
-                  />
-                  <Stack.Screen
-                    name="SilverSellRequest"
-                    component={SilverSellRequest}
-                  />
-                  <Stack.Screen
-                    name="SellSilverRequestHistory"
-                    component={SellSilverRequestHistory}
-                  />
-                  <Stack.Screen
-                    name="SellRequestHistory"
-                    component={SellRequestHistory}
-                  />
-                  <Stack.Screen
-                    name="SilverDeliveryRequestHistory"
-                    component={SilverDeliveryRequestHistory}
-                  />
+                  <Stack.Screen name='ProductsByCollection' component={ProductsByCollection} options={{
+                    headerShown: true,
+                    header: ({ route }) => {
+                      const params = route?.params;
+                      return (
+                        <BackHeader title={`${params?.name}`} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Buy' component={Buy} />
+                  <Stack.Screen name='Sell' component={Sell} />
+                  <Stack.Screen name='History' component={History} />
+                  <Stack.Screen name='Address' component={Address} />
+                  <Stack.Screen name='RecieptLists' component={RecieptLists} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'فیش‌های واریزی'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='PayReserve' component={PayReserve} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'پرداخت باقی مبلغ'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='ShippingDeliveryPayment' component={ShippingDeliveryPayment} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'پرداخت هزینه ارسال'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='ShippingDeliveryPaymentSilver' component={ShippingDeliveryPaymentSilver} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'پرداخت هزینه ارسال'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Order Detail' component={OrderDetail} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'جزئیات سفارش'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Verify' component={Verify} />
+                  <Stack.Screen name='Purchase' component={Purchase} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'خرید طلای آب شده'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='ChargeSilverWallet' component={ChargeSilverWallet} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'خرید نقره‌ی آب شده'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='SilverConvert' component={SilverConvert} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'تبدیل نقره به طلا'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='GoldConvert' component={GoldConvert} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'تبدیل طلا به نقره'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='SilverDeliveryRequest' component={SilverDeliveryRequest} />
+                  <Stack.Screen name='GoldSellRequest' component={GoldSellRequest} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'فروش طلای آب شده'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='SilverSellRequest' component={SilverSellRequest} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'فروش نقره‌ی آب شده'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='SellSilverRequestHistory' component={SellSilverRequestHistory} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'درخواست‌های فروش نقره'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='SellRequestHistory' component={SellRequestHistory} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'درخواست‌های فروش طلا'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='SilverDeliveryRequestHistory' component={SilverDeliveryRequestHistory} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'درخواست های تحویل حضوری'} />
+                      )
+                    }
+                  }} />
 
                   {/* Account */}
-                  <Stack.Screen name="Profile" component={Profile} />
-                  <Stack.Screen
-                    name="Orders"
-                    component={Orders}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"سفارشات"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="GoldSilverChart"
-                    component={GoldSilverChart}
-                    options={{
-                      headerShown: false,
-                      header: () => {
-                        return <BackHeader title={"سود و زیان"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="ChangePassword"
-                    component={ChangePassword}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"تغییر رمز عبور"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="Transactions"
-                    component={Transactions}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"تراکنش‌ها"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="About"
-                    component={About}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"درباره زرنیو"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="DeliveryRequest"
-                    component={DeliveryRequest}
-                  />
-                  <Stack.Screen
-                    name="DeliveryRequestHistory"
-                    component={DeliveryRequestHistory}
-                  />
-                  <Stack.Screen
-                    name="Privacy"
-                    component={Privacy}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"حریم خصوصی"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="Terms"
-                    component={Terms}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"قوانین و مقررات"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="Faq"
-                    component={Faq}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"سوالات متداول"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="Colleague"
-                    component={Colleague}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"خرید و فروش طلا"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen name="Seller" component={Seller} />
-                  <Stack.Screen name="CommingSoon" component={CommingSoon} />
-                  <Stack.Screen
-                    name="Chat"
-                    component={Chat}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"چت پشتیبانی"} />;
-                      },
-                    }}
-                  />
+                  <Stack.Screen name='Profile' component={Profile} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'پروفایل'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Orders' component={Orders} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'سفارشات'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='GoldSilverChart' component={GoldSilverChart} options={{
+                    headerShown: true,
+                    header: ({ route }) => {
+                      console.log(route?.params?.params?.metal);
+
+                      return (
+                        <BackHeader title={route?.params?.params?.metal == 'silver' ? 'سود و زیان نقره' : 'سود و زیان طلا'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='ChangePassword' component={ChangePassword} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'تغییر رمز عبور'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Transactions' component={Transactions} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'تراکنش‌ها'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='About' component={About} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'درباره زرنیو'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='DeliveryRequest' component={DeliveryRequest} />
+                  <Stack.Screen name='DeliveryRequestHistory' component={DeliveryRequestHistory} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'درخواست‌های تحویل حضوری'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Privacy' component={Privacy} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'حریم خصوصی'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Terms' component={Terms} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'قوانین و مقررات'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Faq' component={Faq} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'سوالات متداول'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Colleague' component={Colleague} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'خرید و فروش طلا'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Seller' component={Seller} />
+                  <Stack.Screen name='CommingSoon' component={CommingSoon} />
+                  <Stack.Screen name='Chat' component={Chat} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'چت پشتیبانی'} />
+                      )
+                    }
+                  }} />
                   {/* Account */}
 
                   {/* Shop */}
-                  <Stack.Screen
-                    name="Product Detail"
-                    component={ProductDetail}
-                  />
-                  <Stack.Screen
-                    name="Search"
-                    component={Search}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"جستجو"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="SearchGem"
-                    component={SearchGem}
-                    options={{
-                      headerShown: true,
-                      header: () => {
-                        return <BackHeader title={"جستجو"} />;
-                      },
-                    }}
-                  />
-                  <Stack.Screen
-                    name="Gem Detail"
-                    component={GemDetail}
-                    options={{
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen name="Submit Order" component={SubmitOrder} />
-                  <Stack.Screen name="Gems" component={Gems} />
-                  <Stack.Screen name="Products" component={Products} />
-                  {/* Shop */}
+                  <Stack.Screen name='Product Detail' component={ProductDetail} options={{
+                    headerShown: true,
+                    header: ({ route }) => {
+
+                      return (
+                        <BackHeader title={'جزئیات محصول'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Search' component={Search} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'جستجو'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='SearchGem' component={SearchGem} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'جستجو'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Gem Detail' component={GemDetail} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'جزئیات محصول'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Submit Order' component={SubmitOrder} />
+                  <Stack.Screen name='Gems' component={Gems} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'محصولات'} />
+                      )
+                    }
+                  }} />
+                  <Stack.Screen name='Products' component={Products} options={{
+                    headerShown: true,
+                    header: () => {
+                      return (
+                        <BackHeader title={'محصولات'} />
+                      )
+                    }
+                  }} />
                 </>
               ) : (
                 <Stack.Screen

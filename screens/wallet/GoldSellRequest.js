@@ -1,14 +1,15 @@
-import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { useCallback, useEffect, useState, useRef } from 'react'
-import * as Linking from 'expo-linking';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import WalletPieceBalance from '../../components/WalletPieceBalance';
 import NewStyles from '../../styles/NewStyles';
 import { themeColor0, themeColor1, themeColor10, themeColor12, themeColor3, themeColor4, themeColor5 } from '../../theme/Color';
 import Button from '../../components/Button';
+import TradeLimitNotice from '../../components/TradeLimitNotice';
 import { formatPrice, handleError, showToastOrAlert } from '../../helpers/Common';
 import { uri } from '../../services/URL';
 import { fetchUser } from '../../slices/userSlice';
@@ -20,6 +21,7 @@ import Loader from './../../components/Loader';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchTradingAllowed } from '../../slices/tradingAllowed';
 import VoteTimerDisplay from '../../components/VoteTimerDisplay';
+import { getTradableBalance, getTradeLimits, getTradeWeightError, TRADE_CALCULATION_DEBOUNCE_MS } from '../../helpers/tradeLimits';
 
 export default function GoldSellRequest({ navigation }) {
 
@@ -28,15 +30,22 @@ export default function GoldSellRequest({ navigation }) {
     const accessToken = useSelector((state) => state?.token?.accessToken);
     const goldInfo = useSelector(state => state.goldInfo?.data);
     const goldInfoLoading = useSelector(state => state.goldInfo?.loading);
-    const goldPrice = goldInfo?.gold_price_per_gram;
-    const editingField = useRef(null);
     const trading = useSelector((state) => state?.trading)
     const tradingData = trading?.data
+    const goldPrice = goldInfo?.gold_price_per_gram;
+    const tradeLimits = getTradeLimits(tradingData, 'sell', 'gold', goldInfo);
+    const editingField = useRef(null);
+    const calculationRequestRef = useRef(0);
     
-    useEffect(() => {
-        dispatch(fetchInfoPrice({ params: null }))
-        dispatch(fetchTradingAllowed())
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            if (accessToken) {
+                dispatch(fetchUser(accessToken));
+            }
+            dispatch(fetchInfoPrice({ params: null }));
+            dispatch(fetchTradingAllowed());
+        }, [accessToken, dispatch]),
+    );
 
     const user = useSelector((state) => state.user?.data);
     const [loading, setLoading] = useState(false)
@@ -44,6 +53,7 @@ export default function GoldSellRequest({ navigation }) {
 
     const [weight, setWeight] = useState("")
     const [price, setPrice] = useState("")
+    const [priceWord, setPriceWord] = useState("")
 
     const weightTimeoutRef = useRef(null);
     const priceTimeoutRef = useRef(null);
@@ -53,117 +63,183 @@ export default function GoldSellRequest({ navigation }) {
         return num.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     };
 
-    const parseNumber = (str) => {
+    const parseMoney = (str) => {
         if (!str) return 0;
-        return Number(str?.replace(/,/g, "")?.replace(/[^0-9]/g, ""));
+        return Number(
+            String(str)
+                .replace(/,/g, "")
+                .replace("٫", ".")
+        );
     };
 
+    const sanitizeMoneyInput = (text) => {
+        const normalized = String(text ?? "")
+            .replace(/,/g, "")
+            .replace(/٫/g, ".")
+            .replace(/[^0-9.]/g, "");
+
+        const dotIndex = normalized.indexOf(".");
+        const hasDecimalPoint = dotIndex !== -1;
+
+        const integerRaw = (hasDecimalPoint ? normalized.slice(0, dotIndex) : normalized)
+            .replace(/\./g, "");
+        const integerPart = integerRaw || "0";
+
+        if (!hasDecimalPoint) {
+            return formatNumber(integerPart);
+        }
+
+        const decimalPart = normalized
+            .slice(dotIndex + 1)
+            .replace(/\./g, "")
+            .slice(0, 3);
+
+        return `${formatNumber(integerPart)}.${decimalPart}`;
+    };
+
+    const parseWeight = (str) => {
+        if (!str) return 0;
+        return Number(String(str).replace(",", "."));
+    };
+
+    const sanitizeWeightInput = (text) => {
+        const normalized = String(text ?? "")
+            .replace(/,/g, ".")
+            .replace(/[^0-9.]/g, "");
+
+        const dotIndex = normalized.indexOf(".");
+        if (dotIndex === -1) {
+            return normalized;
+        }
+
+        const integerPart = normalized.slice(0, dotIndex).replace(/\./g, "") || "0";
+        const decimalPart = normalized
+            .slice(dotIndex + 1)
+            .replace(/\./g, "")
+            .slice(0, 3);
+
+        return `${integerPart}.${decimalPart}`;
+    };
+
+    const tradeWeightError = weight
+        ? getTradeWeightError(parseWeight(weight), tradeLimits, 'فروش طلا')
+        : "";
+
     const calculatePriceFromWeight = async (numericWeight) => {
-        if (!numericWeight || !goldPrice) return "";
+        if (!numericWeight || !goldPrice) return { price: "", priceWords: "" };
+
         const payload = {
             mode: 'price',
             weight: numericWeight,
             way: 'sell'
+        };
 
-        }
         try {
-            const response = await dispatch(fetchInfoPrice({ params: payload }))
-            return formatNumber(Math.round(response?.payload?.price));
+            const payloadData = await dispatch(fetchInfoPrice({ params: payload })).unwrap();
+
+            if (!payloadData || payloadData?.error) {
+                throw new Error(payloadData?.message || 'invalid response');
+            }
+
+            return {
+                price: formatNumber(Math.round(Number(payloadData.price))),
+                priceWords: payloadData?.price_words || "",
+            };
         } catch (error) {
             showToastOrAlert('خطا در محاسبه قیمت طلا')
-            return '0';
+            return { price: "", priceWords: "" };
         }
-
-
     };
 
     const calculateWeightFromPrice = async (numericPrice) => {
-        if (!numericPrice || !goldPrice) return { weight: "", price: "" };
-        const goldPricePerMg = Number(goldPrice) / 1000;
-        if (goldPricePerMg === 0) return { weight: "", price: "" };
+        if (!numericPrice || !goldPrice) {
+            return { weight: "", price: "", priceWords: "" };
+        }
 
         const payload = {
             mode: 'weight',
             price: numericPrice,
             way: 'sell'
+        };
 
-        }
         try {
-            const response = await dispatch(fetchInfoPrice({ params: payload }))
-            const price =
-                response.payload.weight *
-                (response.payload.gold_price_per_mg *
-                    (1 + response.payload.gold_buy_percent / 100));
+            const payloadData = await dispatch(fetchInfoPrice({ params: payload })).unwrap();
+
+            if (!payloadData || payloadData?.error) {
+                throw new Error(payloadData?.message || 'invalid response');
+            }
 
             return {
-                weight: response.payload.weight.toString(),
-                price: formatNumber(Math.round(price)),
+                weight: String(payloadData.weight),
+                // مبلغ واقعی وزن سه‌رقمی برگشتی از بک‌اند جای مبلغ اولیه می‌نشیند.
+                price: formatNumber(Math.round(Number(payloadData.price))),
+                priceWords: payloadData?.price_words || "",
             };
-
         } catch (error) {
             showToastOrAlert('خطا در محاسبه قیمت طلا')
-            return { weight: "", price: "" };
+            return { weight: "", price: "", priceWords: "" };
         }
-
     };
 
     const handleWeightChange = (text) => {
         editingField.current = "weight";
+        const requestId = ++calculationRequestRef.current;
 
-        const onlyNumbers = text.replace(/[^0-9]/g, "");
-        setWeight(onlyNumbers);
+        const sanitized = sanitizeWeightInput(text);
+        setWeight(sanitized);
+        setPriceWord("");
 
-        if (weightTimeoutRef.current) {
-            clearTimeout(weightTimeoutRef.current);
+        if (weightTimeoutRef.current) clearTimeout(weightTimeoutRef.current);
+
+        if (!sanitized) {
+            setPrice("");
+            return;
         }
 
-        if (!onlyNumbers) {
+        const numericWeight = parseWeight(sanitized);
+        if (getTradeWeightError(numericWeight, tradeLimits, 'فروش طلا')) {
             setPrice("");
             return;
         }
 
         weightTimeoutRef.current = setTimeout(async () => {
+            if (editingField.current !== "weight" || requestId !== calculationRequestRef.current) return;
 
-            if (editingField.current !== "weight") return;
+            const result = await calculatePriceFromWeight(numericWeight);
+            if (requestId !== calculationRequestRef.current) return;
 
-            const numericWeight = parseInt(onlyNumbers, 10);
-
-            const calculatedPrice = await calculatePriceFromWeight(numericWeight);
-
-            setPrice(calculatedPrice);
-
-        }, 1000);
+            setPrice(result.price);
+            setPriceWord(result.priceWords);
+        }, TRADE_CALCULATION_DEBOUNCE_MS);
     };
 
     const handlePriceChange = (text) => {
         editingField.current = "price";
+        const requestId = ++calculationRequestRef.current;
 
-        const cleaned = text.replace(/[^0-9]/g, "");
-        const formatted = formatNumber(cleaned);
+        const formatted = sanitizeMoneyInput(text);
+        const numericPrice = parseMoney(formatted);
 
         setPrice(formatted);
+        setPriceWord("");
 
-        if (priceTimeoutRef.current) {
-            clearTimeout(priceTimeoutRef.current);
-        }
+        if (priceTimeoutRef.current) clearTimeout(priceTimeoutRef.current);
 
-        if (!cleaned) {
+        if (!formatted || !Number.isFinite(numericPrice) || numericPrice <= 0) {
             setWeight("");
             return;
         }
 
         priceTimeoutRef.current = setTimeout(async () => {
-
-            if (editingField.current !== "price") return;
-
-            const numericPrice = parseInt(cleaned, 10);
+            if (editingField.current !== "price" || requestId !== calculationRequestRef.current) return;
 
             const result = await calculateWeightFromPrice(numericPrice);
+            if (requestId !== calculationRequestRef.current) return;
 
             setWeight(result.weight);
             setPrice(result.price);
-
-        }, 1000);
+            setPriceWord(result.priceWords);
+        }, TRADE_CALCULATION_DEBOUNCE_MS);
     };
 
     const handlePriceBlur = () => {
@@ -172,6 +248,7 @@ export default function GoldSellRequest({ navigation }) {
         }
 
         editingField.current = null;
+        calculationRequestRef.current += 1;
     };
 
     useEffect(() => {
@@ -184,68 +261,96 @@ export default function GoldSellRequest({ navigation }) {
             }
         };
     }, []);
-    const redirectUrl = Linking.createURL("/?");
+    const useAllMetalBalance = async () => {
+        const walletBalance = Number(user?.wallet?.gold_balance || 0);
 
-    const handleDeepLink = useCallback(({ url }) => {
-        const { queryParams } = Linking.parse(url);
-        if (queryParams?.Status == 'OK' && queryParams?.type == 'purchase') {
-            dispatch(fetchUser(accessToken));
-            showToastOrAlert('پرداخت موفق');
-            setLoading(false);
-        } else if (queryParams?.Status == 'NOK' && queryParams?.type == 'purchase') {
-            showToastOrAlert('پرداخت با خطا مواجه شد.')
-            setLoading(false);
+        if (!Number.isFinite(walletBalance) || walletBalance < tradeLimits.min) {
+            showToastOrAlert("موجودی طلا شما برای فروش کافی نیست");
+            return;
         }
-    }, [accessToken, navigation]);
 
-    useEffect(() => {
-        const subscription = Linking.addEventListener("url", handleDeepLink);
-        return () => {
-            subscription.remove();
-        };
-    }, [handleDeepLink]);
+        if (priceTimeoutRef.current) clearTimeout(priceTimeoutRef.current);
+        if (weightTimeoutRef.current) clearTimeout(weightTimeoutRef.current);
+
+        // هم موجودی واقعی و هم سقف پویا از بک‌اند رعایت می‌شوند.
+        const tradableBalance = getTradableBalance(walletBalance, tradeLimits);
+        const tradeError = getTradeWeightError(tradableBalance, tradeLimits, 'فروش طلا');
+        if (tradeError) {
+            showToastOrAlert(tradeError);
+            return;
+        }
+
+        editingField.current = "weight";
+        const requestId = ++calculationRequestRef.current;
+
+        const weightText = tradableBalance
+            .toFixed(3)
+            .replace(/\.0+$/, "")
+            .replace(/(\.\d*?)0+$/, "$1");
+
+        setWeight(weightText);
+        setPriceWord("");
+
+        const result = await calculatePriceFromWeight(tradableBalance);
+        if (requestId !== calculationRequestRef.current) return;
+        setPrice(result.price);
+        setPriceWord(result.priceWords || "");
+    };
+
 
     const submirRequest = async () => {
-        if (!weight || parseInt(weight, 10) < 1) {
-            showToastOrAlert("لطفاً مقدار معتبری برای خرید وارد کنید");
+        const cleanWeight = parseWeight(weight);
+
+        const tradeError = getTradeWeightError(cleanWeight, tradeLimits, 'فروش طلا');
+        if (tradeError) {
+            showToastOrAlert(tradeError);
             return;
         }
-        if (!Number.isInteger(parseFloat(weight))) {
-            showToastOrAlert("مقدار میلی‌گرم باید عدد صحیح باشد.");
-            return;
-        }
+
         setLoading(true);
-        const cleanWeight = parseNumber(weight);
-        const cleanPrice = parseNumber(price);
+
         try {
-            const response = await axios.post(`${uri}/sell/gold/order/`, { weight: cleanWeight }, { headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${accessToken}` } });
+            const response = await axios.post(
+                `${uri}/sell/gold/order/`,
+                { weight: cleanWeight },
+                {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                }
+            );
+
             dispatch(fetchUser(accessToken));
-            showToastOrAlert(response?.data?.message);
-            setPrice("")
-            setWeight("")
+            dispatch(fetchTradingAllowed());
+            showToastOrAlert(
+                response?.data?.message
+                || (response?.data?.requires_admin_approval
+                    ? 'درخواست فروش ثبت شد و در انتظار تأیید مدیر است.'
+                    : 'فروش طلا با موفقیت انجام شد.')
+            );
+            setPrice("");
+            setWeight("");
+            setPriceWord("");
         } catch (error) {
             handleError(error, t)
         } finally {
-            dispatch(fetchTradingAllowed())
             setLoading(false);
         }
     };
 
 
-
     return (
-        <SafeAreaView style={NewStyles.container} edges={{ top: 'additive', bottom: 'additive' }}>
+        <SafeAreaView style={NewStyles.container} edges={{ top: 'off', bottom: 'additive' }}>
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={'padding'}>
 
                 {
                     tradingData?.allowed ?
-                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainerStyle} refreshControl={<RefreshControl colors={[themeColor1.bgColor(1)]} refreshing={refreshing} onRefresh={() => { dispatch(fetchRate(accessToken)); dispatch(fetchUser(accessToken)); }} />}>
-                            <View style={NewStyles.center}>
-                                <Text style={NewStyles.heading10}>فروش طلای آب شده</Text>
-                            </View>
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainerStyle} refreshControl={<RefreshControl colors={[themeColor1.bgColor(1)]} refreshing={refreshing} onRefresh={() => { dispatch(fetchRate(accessToken)); dispatch(fetchUser(accessToken)); dispatch(fetchInfoPrice({ params: null })); dispatch(fetchTradingAllowed()); }} />}>
+                          
                             <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
 
-                            {(!user?.is_national_birth_verified || !user?.is_phone_national_verified) && <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
+                            {user && (!user?.is_national_birth_verified || !user?.is_phone_national_verified) && <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
                                 <View style={[NewStyles.row, { gap: 10 }]}>
                                     <Ionicons name="alert-circle-outline" size={24} color={themeColor0.bgColor(1)} />
                                     <Text style={[NewStyles.text, { flex: 1 }]}>حساب کاربری شما در حال حاضر احراز هویت نشده است، برای شروع خرید و فروش ابتدا بایستی حساب کاربری خود را احراز هویت کنید.</Text>
@@ -258,29 +363,50 @@ export default function GoldSellRequest({ navigation }) {
                             </View>}
 
                             <View style={NewStyles.rowWrapper}>
-                                <Text style={NewStyles.text10}>نرخ هر میلی گرم طلای 18 عیار</Text>
-                                <Text style={NewStyles.text10}>{formatPrice((Number(goldPrice) / 1000)?.toFixed())} تومان</Text>
+                                <Text style={NewStyles.text10}>نرخ هر گرم طلای 18 عیار</Text>
+                                <Text style={NewStyles.text10}>{formatPrice(Number(goldPrice)?.toFixed())} تومان</Text>
                             </View>
 
                             <TextInput
                                 style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
                                 placeholderTextColor={themeColor10.bgColor(0.5)}
-                                keyboardType={'number-pad'}
-                                placeholder='مقدار بر حسب میلی گرم'
+                                keyboardType={'decimal-pad'}
+                                placeholder='مقدار بر حسب گرم (تا ۳ رقم اعشار)'
                                 value={weight}
-                                maxLength={5}
+                                maxLength={13}
                                 onChangeText={handleWeightChange}
                             />
+                            <TradeLimitNotice
+                                limits={tradeLimits}
+                                operationLabel="فروش طلا"
+                                error={tradeWeightError}
+                            />
+                            <TouchableOpacity
+                                onPress={useAllMetalBalance}
+                                style={{
+                                    alignSelf: 'flex-start',
+                                    paddingVertical: 5,
+                                    paddingHorizontal: 2,
+                                }}>
+                                <Text style={[NewStyles.text1, { fontSize: 13 }]}>
+                                    فروش کل موجودی طلا
+                                </Text>
+                            </TouchableOpacity>
 
                             <TextInput
                                 style={[NewStyles.textInput, NewStyles.text10, NewStyles.border10]}
                                 placeholderTextColor={themeColor10.bgColor(0.5)}
-                                keyboardType={'number-pad'}
-                                placeholder='مقدار بر حسب تومان'
+                                keyboardType={'decimal-pad'}
+                                placeholder='مبلغ به تومان (تا ۳ رقم اعشار)'
                                 value={price}
                                 onChangeText={handlePriceChange}
                                 onBlur={handlePriceBlur}
                             />
+                            {priceWord?.trim() && (
+                                <Text style={[NewStyles.text1, { fontSize: 13 }]}>
+                                    {priceWord}
+                                </Text>
+                            )}
 
 
                             <Button
@@ -290,10 +416,7 @@ export default function GoldSellRequest({ navigation }) {
                             />
 
                             <View style={[{ padding: '5%', gap: 10, backgroundColor: themeColor12.bgColor(1) }, NewStyles.border10, NewStyles.shadow]}>
-                                <View style={NewStyles.rowWrapper}>
-                                    <Text style={NewStyles.text10}>دارایی طلا</Text>
-                                    <Text style={NewStyles.text10}>{formatPrice(user?.wallet?.gold_balance * 1000) || '0'} میلی گرم</Text>
-                                </View>
+                                <WalletPieceBalance wallet={user?.wallet} metal="gold" label="دارایی طلا" />
                                 <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
                                 <View style={NewStyles.rowWrapper}>
                                     <Text style={NewStyles.text10}>کارمزد فروش</Text>
@@ -327,7 +450,7 @@ export default function GoldSellRequest({ navigation }) {
 const styles = StyleSheet.create({
     contentContainerStyle: {
         paddingHorizontal: '5%',
-        paddingVertical: '5%',
+        paddingBottom: '5%',
         gap: 10,
     },
 });

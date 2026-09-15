@@ -103,11 +103,16 @@ export default function ProductDetail({ route, navigation }) {
             setPending1(false);
         }
     } 
+    
+    if(loading){
+        return(
+            <Loader/>
+        )
+    }
 
     return (
         <SafeAreaView edges={{ top: 'off', bottom: 'additive' }} style={NewStyles.container}>
-            <CustomStatusBar />
-            {loading && <Loader />}
+            <CustomStatusBar /> 
             <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl colors={[themeColor1.bgColor(1)]} refreshing={refreshing} onRefresh={() => { fetchData() }} />}>
                 <ImageBackground style={{ width: '100%', aspectRatio: 1, justifyContent:'flex-end'}} source={{ uri: `${mainUri}${data?.product_galleries?.[currentImage]?.file_name}` }} >
                     {
@@ -139,7 +144,7 @@ export default function ProductDetail({ route, navigation }) {
                 />
                 {data?.product_varieties?.[activeVariety]?.stock == 0 &&
                     <View style={[NewStyles.border10, styles.unavailable]}>
-                        <Text style={NewStyles.text10}>{t('َUnavailable')}</Text>
+                        <Text style={NewStyles.text4}>{t('َUnavailable')}</Text>
                     </View>}
                 <View style={styles.wrapper}>
                     <Text style={NewStyles.text10}>{data?.brand?.name} - {data?.collection?.name}</Text>

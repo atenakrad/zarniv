@@ -79,11 +79,8 @@ export default function OrderDetail({ route }) {
     }
 
     return (
-        <SafeAreaView edges={{ top: 'additive', bottom: 'additive' }} style={NewStyles.container}>
-            <View style={[NewStyles.center, { paddingVertical: '5%' }]}>
-                <Text style={NewStyles.heading10}>جزئیات سفارش</Text>
-            </View>
-            <View style={{ borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColor3.bgColor(0.2) }} />
+        <SafeAreaView edges={{ top: 'off', bottom: 'additive' }} style={NewStyles.container}>
+              
             <FlatList
                 contentContainerStyle={styles.contentContainerStyle}
                 showsVerticalScrollIndicator={false}

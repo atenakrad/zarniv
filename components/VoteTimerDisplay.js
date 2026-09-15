@@ -1,48 +1,69 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import CountdownTimer from './CountdownTimer';
 import FinalCountdown from './FinalCountdown';
+import { themeColor0 } from '../theme/Color';
 
 const VoteTimerDisplay = memo(({ initialRemainingSeconds, onTimeExpired, title, subTitle, }) => {
-  const [timeLeft, setTimeLeft] = useState(initialRemainingSeconds);
+  const hasRawTime = initialRemainingSeconds !== undefined
+    && initialRemainingSeconds !== null
+    && initialRemainingSeconds !== '';
+  const normalizedInitial = Number(initialRemainingSeconds);
+  const hasValidTime = hasRawTime && Number.isFinite(normalizedInitial) && normalizedInitial >= 0;
+  const [timeLeft, setTimeLeft] = useState(hasValidTime ? normalizedInitial : null);
   const intervalRef = useRef(null);
+  const onTimeExpiredRef = useRef(onTimeExpired);
 
   useEffect(() => {
-    // Clear any existing interval when component mounts or initialRemainingSeconds changes
+    onTimeExpiredRef.current = onTimeExpired;
+  }, [onTimeExpired]);
+
+  useEffect(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
 
-    // Set the initial timeLeft directly
-    setTimeLeft(initialRemainingSeconds);
+    if (!hasValidTime) {
+      setTimeLeft(null);
+      return undefined;
+    }
 
-    // Only start interval if there's time remaining and it's a positive value
-    if (initialRemainingSeconds > 0) {
+    setTimeLeft(normalizedInitial);
+
+    if (normalizedInitial > 0) {
       intervalRef.current = setInterval(() => {
         setTimeLeft(prevTime => {
-          const newTime = Math.max(0, prevTime - 1);
-          if (newTime === 0 && onTimeExpired) {
-            onTimeExpired();
+          const safePrevious = Number.isFinite(prevTime) ? prevTime : 0;
+          const newTime = Math.max(0, safePrevious - 1);
+          if (newTime === 0) {
+            onTimeExpiredRef.current?.();
           }
           return newTime;
         });
       }, 1000);
-    } else if (initialRemainingSeconds === 0 && onTimeExpired) {
-      // If it's already expired when it loads
-      onTimeExpired();
+    } else if (normalizedInitial === 0) {
+      onTimeExpiredRef.current?.();
     }
 
-    // Cleanup function
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
     };
-  }, [initialRemainingSeconds, onTimeExpired]); // Dependencies for the effect
+  }, [hasValidTime, normalizedInitial]);
 
-  const isCountingToStart = initialRemainingSeconds !== undefined && initialRemainingSeconds !== null && initialRemainingSeconds > 0; // Adjust this logic if needed based on how you use it
+  // نبودن status معتبر یعنی هنوز پاسخ سرور نیامده؛ هرگز ۲۰ دقیقه ساختگی نشان نده.
+  if (!hasValidTime || timeLeft === null) {
+    return (
+      <View style={{ minHeight: 120, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={themeColor0.bgColor(1)} />
+      </View>
+    );
+  }
+
+  const isCountingToStart = normalizedInitial > 0;
 
   return (
     <View>
